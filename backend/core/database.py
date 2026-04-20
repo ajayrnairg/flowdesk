@@ -2,12 +2,17 @@ from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, Asyn
 from sqlalchemy.orm import DeclarativeBase
 from core.config import settings
 
-# Initialize async engine for NeonDB.
-# pool_pre_ping checks connections before using them (handles serverless connection drops).
-# pool_recycle reconnects connections older than 300s to avoid DB timeouts.
+# Auto-fix DATABASE_URL for Render/Neon if it's missing the +asyncpg driver
+db_url = settings.DATABASE_URL
+if db_url.startswith("postgres://"):
+    db_url = db_url.replace("postgres://", "postgresql+asyncpg://", 1)
+elif db_url.startswith("postgresql://"):
+    db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+
+# Initialize async engine
 engine = create_async_engine(
-    settings.DATABASE_URL,
-    echo=False,  # Set to True for debugging SQL queries
+    db_url,
+    echo=False,
     pool_pre_ping=True,
     pool_recycle=300,
 )
