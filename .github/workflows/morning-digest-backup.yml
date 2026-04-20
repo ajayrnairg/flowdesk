@@ -1,0 +1,32 @@
+# This is a BACKUP trigger for the morning digest.
+# Primary trigger: UptimeRobot pings `/check-and-send` every 5 minutes.
+# This workflow runs only if that fails, acting as a safety net.
+
+name: Morning Digest Backup
+
+on:
+  schedule:
+    # Runs at 01:20 UTC (07:50 AM IST)
+    - cron: "20 1 * * *"
+  workflow_dispatch: # allows manual trigger from GitHub UI
+
+jobs:
+  send-morning-digest:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Trigger morning digest API
+        run: |
+          echo "Sending backup morning digest request..."
+
+          RESPONSE_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X POST "${{ secrets.BACKEND_URL }}/notifications/send-digest?token=${{ secrets.NOTIFICATION_SECRET }}")
+
+          echo "Response status: $RESPONSE_CODE"
+
+          if [ "$RESPONSE_CODE" -ne 200 ]; then
+            echo "❌ Request failed with status $RESPONSE_CODE"
+            exit 1
+          fi
+
+          echo "✅ Morning digest triggered successfully"

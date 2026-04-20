@@ -1,0 +1,11 @@
+# Environments
+.env
+
+# Byte-compiled / optimized
+__pycache__/
+*.pyc
+
+# Local Virtual Environments (Standard)
+venv/
+env/
+.venv/
