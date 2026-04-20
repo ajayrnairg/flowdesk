@@ -19,7 +19,7 @@ python-multipart>=0.0.6
 
 # Web Push Notifications
 pywebpush>=2.0.0
-py_vapid>=2.0.0
+py-vapid>=1.9.4
 tzdata  # Required on Windows — stdlib zoneinfo has no bundled tz data
 
 # Testing
