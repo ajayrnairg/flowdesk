@@ -13,16 +13,19 @@ from core.config import settings
 
 # Calculate a separate test database URL
 original_url = settings.DATABASE_URL
-# Make sure your NeonDB contains a database named exactly what's below!
-TEST_SQLALCHEMY_DATABASE_URL = original_url.replace("/flowdesk", "/flowdesk_test")
 
-from sqlalchemy import text
-from sqlalchemy.pool import StaticPool
-import pytest_asyncio
+if "sqlite" in original_url:
+    # Use the SQLite memory DB directly (the /flowdesk split doesn't apply)
+    TEST_SQLALCHEMY_DATABASE_URL = original_url
+else:
+    # PostgreSQL transformation: replace /flowdesk with /flowdesk_test
+    # Note: Ensure your local Postgres / NeonDB has a "flowdesk_test" DB created!
+    TEST_SQLALCHEMY_DATABASE_URL = original_url.replace("/flowdesk", "/flowdesk_test")
 
 # Create test engine and sessionmaker
+# StaticPool is REQUIRED for in-memory SQLite to share the connection across tests
 engine_test = create_async_engine(
-    TEST_SQLALCHEMY_DATABASE_URL, 
+    TEST_SQLALCHEMY_DATABASE_URL,
     pool_pre_ping=True,
     poolclass=StaticPool
 )
@@ -34,13 +37,10 @@ TestingSessionLocal = async_sessionmaker(
 
 @pytest_asyncio.fixture(scope="session")
 async def engine():
-    """Session-scoped engine — created once, shared across all tests."""
-    eng = create_async_engine(
-        TEST_SQLALCHEMY_DATABASE_URL,
-        poolclass=StaticPool,
-    )
-    yield eng
-    await eng.dispose()
+    """Session-scoped engine fixture."""
+    yield engine_test
+    # Note: we don't dispose engine_test here as it's a global, 
+    # but the fixture matches the signature.
 
 @pytest_asyncio.fixture(scope="session", autouse=True)
 async def create_tables(engine):
@@ -62,14 +62,14 @@ app.dependency_overrides[get_db] = override_get_db
 
 @pytest_asyncio.fixture(autouse=True)
 async def setup_test_db():
-    """Clear data out of tables per-test using TRUNCATE CASCADE."""
+    """Clear data out of tables per-test using DELETE FROM."""
     yield # Test runs here
     
     # Clean up after test finishes
     async with engine_test.begin() as conn:
-        # conftest.py — current
         for table in reversed(Base.metadata.sorted_tables):
-            await conn.execute(text(f'TRUNCATE TABLE "{table.name}" CASCADE;'))
+            # DELETE FROM is safer across different DB engines than TRUNCATE
+            await conn.execute(text(f'DELETE FROM "{table.name}";'))
 
 @pytest_asyncio.fixture
 async def async_client():
