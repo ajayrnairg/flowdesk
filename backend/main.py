@@ -35,10 +35,15 @@ app = FastAPI(
     lifespan=lifespan
 )
 
-# CORS Configuration - adjust allow_origins for production
+# CORS Configuration
+origins = [
+    "http://localhost:3000",
+    "https://flowdesk-nhb5jehog-ajones-projects-ed4b9177.vercel.app",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # Change this to specific domains in prod (e.g. ["http://localhost:3000"])
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
