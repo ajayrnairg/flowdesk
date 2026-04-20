@@ -20,6 +20,9 @@ class NotificationLog(Base):
     # e.g. "morning_digest", "task_reminder"
     digest_type: Mapped[str] = mapped_column(String(100), nullable=False)
 
+    # e.g. "email", "push"
+    channel: Mapped[str] = mapped_column(String(20), nullable=False)
+
     # e.g. "sent", "failed", "skipped"
     status: Mapped[str] = mapped_column(String(50), nullable=False)
 
