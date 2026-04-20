@@ -22,7 +22,7 @@ jobs:
           pip install -r requirements.txt
       - name: Run tests
         env:
-          DATABASE_URL: "sqlite+aiosqlite:///:memory:" # Use memory DB with async driver
+          DATABASE_URL: "sqlite+aiosqlite:///ci_test_db.sqlite" # Use file-based SQLite for stable CI
           SECRET_KEY: "test_secret"
           ALGORITHM: "HS256"
           NOTIFICATION_SECRET: "test_notify"

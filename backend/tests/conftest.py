@@ -2,7 +2,6 @@ import pytest
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy import text
-from sqlalchemy.pool import StaticPool
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 
 # Import the actual models and app
@@ -25,11 +24,10 @@ else:
     TEST_SQLALCHEMY_DATABASE_URL = original_url.replace("/flowdesk", "/flowdesk_test")
 
 # Create test engine and sessionmaker
-# StaticPool is REQUIRED for in-memory SQLite to share the connection across tests
+# StaticPool is only needed for :memory:, we are now using files for stability
 engine_test = create_async_engine(
     TEST_SQLALCHEMY_DATABASE_URL,
     pool_pre_ping=True,
-    poolclass=StaticPool
 )
 TestingSessionLocal = async_sessionmaker(
     bind=engine_test, class_=AsyncSession, expire_on_commit=False, autoflush=False
