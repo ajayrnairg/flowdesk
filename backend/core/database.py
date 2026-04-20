@@ -9,15 +9,18 @@ if db_url.startswith("postgres://"):
 elif db_url.startswith("postgresql://"):
     db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
 
-# Initialize async engine
-engine = create_async_engine(
-    db_url,
-    echo=False,
-    pool_pre_ping=True,
-    pool_recycle=300,
-    # Required for Neon/PgBouncer transaction pooling to avoid prepared statement errors
-    prepared_statement_cache_size=0,
-)
+# Initialize async engine with dialect-specific options
+engine_kwargs = {
+    "echo": False,
+    "pool_pre_ping": True,
+    "pool_recycle": 300,
+}
+
+# Only apply prepared_statement_cache_size if we're using PostgreSQL
+if "postgresql" in db_url:
+    engine_kwargs["prepared_statement_cache_size"] = 0
+
+engine = create_async_engine(db_url, **engine_kwargs)
 
 # Create an async session factory
 AsyncSessionLocal = async_sessionmaker(
