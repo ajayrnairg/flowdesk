@@ -11,6 +11,10 @@ alembic>=1.11.2
 pydantic>=2.1.1
 pydantic-settings>=2.0.2
 email-validator>=2.1.0
+resend>=2.2.0
+python-dotenv>=1.0.0
+
+
 
 # Security & Authentication
 passlib[bcrypt]>=1.7.4
