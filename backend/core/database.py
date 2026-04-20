@@ -15,6 +15,8 @@ engine = create_async_engine(
     echo=False,
     pool_pre_ping=True,
     pool_recycle=300,
+    # Required for Neon/PgBouncer transaction pooling to avoid prepared statement errors
+    prepared_statement_cache_size=0,
 )
 
 # Create an async session factory
