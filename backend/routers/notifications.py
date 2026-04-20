@@ -64,8 +64,11 @@ async def check_and_send_digest(token: str, db: AsyncSession = Depends(get_db)):
 async def force_send_digest(token: str, db: AsyncSession = Depends(get_db)):
     """Unconditional trigger for GitHub actions / manual overrides."""
     verify_token(token)
-    notified_count = await send_morning_digest_to_all_users(db)
-    return {"status": "sent", "count": notified_count}
+    try:
+        notified_count = await send_morning_digest_to_all_users(db)
+        return {"status": "sent", "count": notified_count}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 @router.post("/subscriptions", status_code=status.HTTP_201_CREATED)
 async def create_subscription(

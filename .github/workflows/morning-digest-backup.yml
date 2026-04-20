@@ -21,10 +21,11 @@ jobs:
         run: |
           echo "Sending backup morning digest request..."
 
-          RESPONSE_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+          RESPONSE_CODE=$(curl -s -o response_body.json -w "%{http_code}" \
             -X POST "${{ secrets.BACKEND_URL }}/notifications/send-digest?token=${{ secrets.NOTIFICATION_SECRET }}")
 
           echo "Response status: $RESPONSE_CODE"
+          echo "Response body: $(cat response_body.json)"
 
           if [ "$RESPONSE_CODE" -ne 200 ]; then
             echo "❌ Request failed with status $RESPONSE_CODE"
