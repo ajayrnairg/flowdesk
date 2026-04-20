@@ -8,6 +8,8 @@ on:
   schedule:
     # Runs at 01:20 UTC (07:50 AM IST)
     - cron: "20 1 * * *"
+  push:
+    branches: [ master ]
   workflow_dispatch: # allows manual trigger from GitHub UI
 
 jobs:
