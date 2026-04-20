@@ -16,9 +16,10 @@ engine_kwargs = {
     "pool_recycle": 300,
 }
 
-# Only apply prepared_statement_cache_size if we're using PostgreSQL
+# Only apply statement_cache_size if we're using PostgreSQL (asyncpg)
+# This is required for Neon/PgBouncer transaction pooling to avoid prepared statement errors
 if "postgresql" in db_url:
-    engine_kwargs["prepared_statement_cache_size"] = 0
+    engine_kwargs["connect_args"] = {"statement_cache_size": 0}
 
 engine = create_async_engine(db_url, **engine_kwargs)
 
