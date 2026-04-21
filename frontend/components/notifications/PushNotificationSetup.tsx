@@ -18,12 +18,7 @@ export default function PushNotificationSetup() {
         }
     }, [])
 
-    const handleEnable = async () => {
-        if (!("serviceWorker" in navigator) || !("Notification" in window)) {
-            alert("Push notifications are not supported by this browser.")
-            return
-        }
-
+    const runSetup = async () => {
         setLoading(true)
         setSuccess(false)
         setError(null)
@@ -40,9 +35,41 @@ export default function PushNotificationSetup() {
         }
     }
 
+    const handleEnable = async () => {
+        if (!("serviceWorker" in navigator) || !("Notification" in window)) {
+            alert("Push notifications are not supported by this browser.")
+            return
+        }
+        await runSetup()
+    }
+
+    /** Unsubscribes from the browser push manager, then re-subscribes fresh */
+    const handleReset = async () => {
+        if (!("serviceWorker" in navigator)) return
+
+        setLoading(true)
+        setError(null)
+        setSuccess(false)
+
+        try {
+            const reg = await navigator.serviceWorker.ready
+            const existing = await reg.pushManager.getSubscription()
+            if (existing) {
+                await existing.unsubscribe()
+            }
+        } catch (err) {
+            console.warn("Unsubscribe failed:", err)
+        }
+
+        await runSetup()
+    }
+
     const renderStatus = () => {
+        if (success) {
+            return <Badge className="bg-green-600">Enabled ✓</Badge>
+        }
         if (permission === "granted") {
-            return <Badge className="bg-green-600">Enabled</Badge>
+            return <Badge variant="secondary">Granted (re-sync needed)</Badge>
         }
         if (permission === "denied") {
             return <Badge variant="destructive">Blocked</Badge>
@@ -76,13 +103,20 @@ export default function PushNotificationSetup() {
 
                 {success && (
                     <p className="text-sm text-green-600">
-                        ✅ Notifications enabled
+                        ✅ Subscription saved — you will receive notifications!
                     </p>
                 )}
 
-                <Button onClick={handleEnable} disabled={loading}>
-                    {loading ? "Enabling..." : "Enable notifications"}
-                </Button>
+                <div className="flex gap-2">
+                    <Button onClick={handleEnable} disabled={loading}>
+                        {loading ? "Working..." : "Enable notifications"}
+                    </Button>
+                    {permission === "granted" && !success && (
+                        <Button variant="outline" onClick={handleReset} disabled={loading}>
+                            Reset & Re-sync
+                        </Button>
+                    )}
+                </div>
             </CardContent>
         </Card>
     )
