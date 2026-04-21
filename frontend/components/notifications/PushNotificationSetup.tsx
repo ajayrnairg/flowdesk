@@ -10,6 +10,7 @@ export default function PushNotificationSetup() {
     const [permission, setPermission] = useState<NotificationPermission>("default")
     const [loading, setLoading] = useState(false)
     const [success, setSuccess] = useState(false)
+    const [error, setError] = useState<string | null>(null)
 
     useEffect(() => {
         if (typeof window !== "undefined" && "Notification" in window) {
@@ -25,6 +26,7 @@ export default function PushNotificationSetup() {
 
         setLoading(true)
         setSuccess(false)
+        setError(null)
 
         const result = await setupPushNotifications()
 
@@ -33,6 +35,8 @@ export default function PushNotificationSetup() {
         if (result.success) {
             setSuccess(true)
             setPermission("granted")
+        } else {
+            setError(result.error ?? "Unknown error")
         }
     }
 
@@ -61,6 +65,12 @@ export default function PushNotificationSetup() {
                 {permission === "denied" && (
                     <p className="text-sm text-red-500">
                         Notifications are blocked. Please enable them in your browser settings.
+                    </p>
+                )}
+
+                {error && (
+                    <p className="text-sm text-red-500">
+                        ❌ Error: {error}
                     </p>
                 )}
 

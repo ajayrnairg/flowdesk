@@ -69,10 +69,13 @@ export async function subscribeToPush(
 export async function savePushSubscription(subscription: PushSubscription) {
     const json = subscription.toJSON()
 
+    // NOTE: Backend schema expects { endpoint, keys: { p256dh, auth }, user_agent }
     await api.post("/notifications/subscriptions", {
         endpoint: json.endpoint,
-        p256dh: json.keys?.p256dh,
-        auth: json.keys?.auth,
+        keys: {
+            p256dh: json.keys?.p256dh,
+            auth: json.keys?.auth,
+        },
         user_agent: typeof navigator !== "undefined" ? navigator.userAgent : "unknown",
     })
 }
@@ -99,7 +102,9 @@ export async function setupPushNotifications(): Promise<{
         await savePushSubscription(subscription)
 
         return { success: true }
-    } catch (err) {
-        return { success: false, error: "Unexpected error" }
+    } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : String(err)
+        console.error("[setupPushNotifications] fatal:", message)
+        return { success: false, error: message }
     }
 }
