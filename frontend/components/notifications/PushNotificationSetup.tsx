@@ -11,11 +11,21 @@ export default function PushNotificationSetup() {
     const [loading, setLoading] = useState(false)
     const [success, setSuccess] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const [vapidDebug, setVapidDebug] = useState<string | null>(null)
 
     useEffect(() => {
         if (typeof window !== "undefined" && "Notification" in window) {
             setPermission(Notification.permission)
         }
+        // Show what VAPID key is actually loaded at runtime
+        const key = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY ?? "(not set)"
+        let byteLen = "?"
+        try {
+            const padding = "=".repeat((4 - (key.length % 4)) % 4)
+            const b64 = (key + padding).replace(/-/g, "+").replace(/_/g, "/")
+            byteLen = String(atob(b64).length)
+        } catch { /* ignore */ }
+        setVapidDebug(`key[0..20]="${key.slice(0, 20)}..." len=${key.length} decoded=${byteLen}B`)
     }, [])
 
     const runSetup = async () => {
@@ -117,6 +127,13 @@ export default function PushNotificationSetup() {
                         </Button>
                     )}
                 </div>
+
+                {/* Debug info — remove after confirming mobile works */}
+                {vapidDebug && (
+                    <p className="text-xs text-slate-400 font-mono break-all">
+                        🔑 {vapidDebug}
+                    </p>
+                )}
             </CardContent>
         </Card>
     )
