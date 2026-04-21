@@ -85,8 +85,8 @@ export async function setupPushNotifications(): Promise<{
 
         return { success: true }
     } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : String(err)
-        console.error("[setupPushNotifications] fatal:", message)
+        const message = err instanceof Error ? `${err.name}: ${err.message}` : String(err)
+        console.error('[setupPushNotifications] fatal:', err)
         return { success: false, error: message }
     }
 }

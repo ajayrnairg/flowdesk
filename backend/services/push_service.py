@@ -1,10 +1,25 @@
-import json
-import asyncio
-from pywebpush import webpush, WebPushException
-from core.config import settings
-from models.notification import PushSubscription
+import base64
+import textwrap
 
-async def send_push_notification(subscription: PushSubscription, title: str, body: str):
+def _ensure_pem(key: str) -> str:
+    """Return a PEM‑formatted EC private key.
+    If the key already contains PEM headers we return it unchanged.
+    Otherwise we assume the key is a URL‑safe base64 string (no padding)
+    and wrap it in the standard PEM envelope.
+    """
+    if "BEGIN" in key:
+        return key
+    # Pad to a multiple of 4 for base64 decoding
+    padded = key + "=" * ((4 - len(key) % 4) % 4)
+    raw_bytes = base64.urlsafe_b64decode(padded)
+    b64 = base64.b64encode(raw_bytes).decode()
+    pem_body = "\n".join(textwrap.wrap(b64, 64))
+    return f"-----BEGIN PRIVATE KEY-----\n{pem_body}\n-----END PRIVATE KEY-----"
+
+--- line 34 ---
+-        vapid_private_key=settings.VAPID_PRIVATE_KEY,
++        vapid_private_key=_ensure_pem(settings.VAPID_PRIVATE_KEY),
+--- end ---
     """
     Sends a Web Push Notification using VAPID keys.
     Returns:
