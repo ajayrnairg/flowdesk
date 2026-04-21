@@ -45,24 +45,20 @@ export async function requestPushPermission(): Promise<boolean> {
 // Subscribe
 export async function subscribeToPush(
     registration: ServiceWorkerRegistration
-): Promise<PushSubscription | null> {
-    try {
-        const existing = await registration.pushManager.getSubscription()
-        if (existing) return existing
+): Promise<PushSubscription> {
+    const existing = await registration.pushManager.getSubscription()
+    if (existing) return existing
 
-        const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
-        if (!vapidKey) throw new Error("Missing VAPID key")
+    const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+    if (!vapidKey) throw new Error("Missing VAPID key env var")
 
-        const convertedKey = urlBase64ToUint8Array(vapidKey)
+    const convertedKey = urlBase64ToUint8Array(vapidKey)
 
-        return await registration.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: convertedKey as unknown as BufferSource,
-        })
-    } catch (err) {
-        console.error("Subscription failed:", err)
-        return null
-    }
+    // This throws a DOMException with the real reason if it fails
+    return await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: convertedKey as unknown as BufferSource,
+    })
 }
 
 // Save subscription
@@ -95,10 +91,6 @@ export async function setupPushNotifications(): Promise<{
         }
 
         const subscription = await subscribeToPush(registration)
-        if (!subscription) {
-            return { success: false, error: "Subscription failed" }
-        }
-
         await savePushSubscription(subscription)
 
         return { success: true }
