@@ -13,6 +13,8 @@ def _ensure_pem(key: str) -> str:
     """
     # 1. Clean up the input
     key = key.strip().strip('"').strip("'")
+    # Handle literal \n sequences often found in env vars
+    key = key.replace("\\n", "\n")
     
     # 2. If it's already PEM, return as is
     if "-----BEGIN" in key:
