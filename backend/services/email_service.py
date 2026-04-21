@@ -48,7 +48,7 @@ async def send_digest_email(user: User, digest_data: dict) -> bool:
     try:
         # Note: Resend's python SDK is synchronous, so we execute it safely
         resend.Emails.send({
-            "from": "FlowDesk <notifications@yourdomain.com>", # Update with your verified domain
+            "from": "FlowDesk <onboarding@resend.dev>",
             "to": [user.email],
             "subject": f"☀️ FlowDesk Morning Digest — {today_str}",
             "html": html_content
