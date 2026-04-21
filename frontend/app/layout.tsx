@@ -7,6 +7,11 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "FlowDesk",
   description: "Your productivity workspace",
+  manifest: "/manifest.json",
+}
+
+export const viewport = {
+  themeColor: "#0f172a",
 }
 
 export default function RootLayout({
