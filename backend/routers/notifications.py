@@ -21,7 +21,7 @@ def verify_token(token: str):
     if token != settings.NOTIFICATION_SECRET:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid token")
 
-@router.get("/check-and-send")
+@router.api_route("/check-and-send", methods=["GET", "HEAD"])
 async def check_and_send_digest(token: str, db: AsyncSession = Depends(get_db)):
     """
     Time-gated UptimeRobot webhook. Checks if we are in the correct time window

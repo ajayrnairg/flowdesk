@@ -54,7 +54,7 @@ app.include_router(auth.router)
 app.include_router(tasks.router)
 app.include_router(notifications.router)
 
-@app.get("/health", tags=["System"])
+@app.api_route("/health", methods=["GET", "HEAD"], tags=["System"])
 async def health_check():
     """Simple health check endpoint."""
     return {"status": "ok"}
