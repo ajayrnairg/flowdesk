@@ -36,8 +36,9 @@ async def send_push_notification(subscription: PushSubscription, title: str, bod
         )
         return True
     except WebPushException as e:
-        if e.response and e.response.status_code == 410:
-            # 410 Gone means the user revoked permissions or the browser deleted the sub
+        response_status = getattr(getattr(e, 'response', None), 'status_code', None)
+        if response_status == 410 or "410" in str(e):
+            # 410 Gone — browser discarded this subscription, clean it up
             return "EXPIRED"
         print(f"WebPush Exception for sub {subscription.id}: {e}")
         return False
