@@ -36,14 +36,18 @@ app = FastAPI(
 )
 
 # CORS Configuration
+# In production, you'd want to be more restrictive, but for Vercel previews, 
+# we allow all .vercel.app subdomains.
 origins = [
     "http://localhost:3000",
-    "https://flowdesk-nhb5jehog-ajones-projects-ed4b9177.vercel.app",
+    "http://127.0.0.1:3000",
+    "https://flowdesk-g6bppjsua-ajones-projects-ed4b9177.vercel.app", # Main domain
 ]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
+    allow_origin_regex="https://flowdesk-.*\.vercel\.app", # Allow all Vercel previews
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
