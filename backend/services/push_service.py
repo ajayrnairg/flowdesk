@@ -32,7 +32,7 @@ async def send_push_notification(subscription: PushSubscription, title: str, bod
             subscription_info=subscription_info,
             data=payload,
             vapid_private_key=settings.VAPID_PRIVATE_KEY,
-            vapid_claims={"sub": settings.VAPID_CLAIM_EMAIL}
+            vapid_claims={"sub": f"mailto:{settings.VAPID_CLAIM_EMAIL}"}
         )
         return True
     except WebPushException as e:
