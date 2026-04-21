@@ -30,11 +30,14 @@ export async function requestPushPermission(): Promise<boolean> {
     return permission === "granted"
 }
 
-// Subscribe
-export async function subscribeToPush(
-    registration: ServiceWorkerRegistration
-): Promise<PushSubscription> {
-    const existing = await registration.pushManager.getSubscription()
+// Subscribe — always waits for SW activation via navigator.serviceWorker.ready
+export async function subscribeToPush(): Promise<PushSubscription> {
+    // .ready resolves only when the SW is fully ACTIVATED and controlling the page.
+    // Using the registration from .register() is NOT sufficient on mobile — it
+    // resolves when the SW is parsed/registered, not yet activated.
+    const activeReg = await navigator.serviceWorker.ready
+
+    const existing = await activeReg.pushManager.getSubscription()
     if (existing) return existing
 
     const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
@@ -42,8 +45,7 @@ export async function subscribeToPush(
 
     const convertedKey = urlBase64ToUint8Array(vapidKey)
 
-    // This throws a DOMException with the real reason if it fails
-    return await registration.pushManager.subscribe({
+    return await activeReg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: convertedKey as unknown as BufferSource,
     })
@@ -78,7 +80,7 @@ export async function setupPushNotifications(): Promise<{
             return { success: false, error: "Permission denied" }
         }
 
-        const subscription = await subscribeToPush(registration)
+        const subscription = await subscribeToPush()
         await savePushSubscription(subscription)
 
         return { success: true }
