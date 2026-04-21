@@ -1,48 +1,36 @@
 import json
 import asyncio
-import base64
-import textwrap
 from pywebpush import webpush, WebPushException
 from core.config import settings
 from models.notification import PushSubscription
+from cryptography.hazmat.primitives.asymmetric import ec
+from cryptography.hazmat.primitives import serialization
 
-def _ensure_pem(key: str) -> str:
+def _get_private_key():
     """
-    Return a PEM-formatted EC private key.
-    Handles raw base64, base64url, and existing PEM strings.
+    Load the private key. Supports:
+    1. Raw 32-byte hex string (Recommended for Render)
+    2. PEM formatted string
     """
-    # 1. Clean up the input
-    key = key.strip().strip('"').strip("'")
-    # Handle literal \n sequences often found in env vars
-    key = key.replace("\\n", "\n")
+    key_str = settings.VAPID_PRIVATE_KEY.strip().strip('"').strip("'")
     
-    # 2. If it's already PEM, return as is
-    if "-----BEGIN" in key:
-        return key
-        
-    # 3. Convert from base64/base64url to standard bytes
-    # Replace URL-safe characters just in case, then add padding
-    key_clean = key.replace("-", "+").replace("_", "/")
-    padded = key_clean + "=" * ((4 - len(key_clean) % 4) % 4)
-    
-    try:
-        raw_bytes = base64.b64decode(padded)
-    except Exception as e:
-        print(f"DEBUG: Failed to decode VAPID_PRIVATE_KEY: {e}")
-        return key # Fallback to original
+    # If it's hex (64 chars), load it directly as a 32-byte integer
+    if len(key_str) == 64:
+        try:
+            d = int(key_str, 16)
+            return ec.derive_private_key(d, ec.SECP256R1()).private_bytes(
+                encoding=serialization.Encoding.PEM,
+                format=serialization.PrivateFormat.PKCS8,
+                encryption_algorithm=serialization.NoEncryption()
+            ).decode()
+        except ValueError:
+            pass
 
-    # 4. Re-encode to standard base64 and wrap in PEM
-    b64 = base64.b64encode(raw_bytes).decode()
-    pem_body = "\n".join(textwrap.wrap(b64, 64))
-    return f"-----BEGIN PRIVATE KEY-----\n{pem_body}\n-----END PRIVATE KEY-----"
+    # Fallback: assume it's PEM (or handle literal \n)
+    return key_str.replace("\\n", "\n")
 
 async def send_push_notification(subscription: PushSubscription, title: str, body: str):
-    """Sends a Web Push Notification using VAPID keys.
-    Returns:
-        True: Success
-        False: Generic Failure
-        "EXPIRED": sentinel for 410 Gone (subscription no longer valid)
-    """
+    """Sends a Web Push Notification using VAPID keys."""
     subscription_info = {
         "endpoint": subscription.endpoint,
         "keys": {
@@ -54,14 +42,11 @@ async def send_push_notification(subscription: PushSubscription, title: str, bod
     payload = json.dumps({"title": title, "body": body})
 
     try:
-        # Use the cleaned PEM key
-        private_key_pem = _ensure_pem(settings.VAPID_PRIVATE_KEY)
-        
         await asyncio.to_thread(
             webpush,
             subscription_info=subscription_info,
             data=payload,
-            vapid_private_key=private_key_pem,
+            vapid_private_key=_get_private_key(),
             vapid_claims={"sub": f"mailto:{settings.VAPID_CLAIM_EMAIL}"},
         )
         return True
