@@ -2,10 +2,22 @@ import api from "./api"
 
 // Convert VAPID key
 export function urlBase64ToUint8Array(base64String: string): Uint8Array {
-    const padding = "=".repeat((4 - (base64String.length % 4)) % 4)
-    const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/")
-    const rawData = window.atob(base64)
-    return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)))
+    // 1. Strip PEM headers/footers and remove all whitespace/newlines
+    const cleanString = base64String
+        .replace(/-----BEGIN.*?-----/g, "")
+        .replace(/-----END.*?-----/g, "")
+        .replace(/\s/g, "");
+
+    // 2. Add padding if necessary
+    const padding = "=".repeat((4 - (cleanString.length % 4)) % 4);
+    
+    // 3. Convert URL-safe Base64 to standard Base64
+    const base64 = (cleanString + padding)
+        .replace(/-/g, "+")
+        .replace(/_/g, "/");
+
+    const rawData = window.atob(base64);
+    return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
 }
 
 // Register SW
