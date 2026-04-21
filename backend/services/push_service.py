@@ -7,15 +7,29 @@ from core.config import settings
 from models.notification import PushSubscription
 
 def _ensure_pem(key: str) -> str:
-    """Return a PEM‑formatted EC private key.
-    If the key already contains PEM headers we return it unchanged.
-    Otherwise we assume the key is a URL‑safe base64 string (no padding)
-    and wrap it in the standard PEM envelope.
     """
-    if "BEGIN" in key:
+    Return a PEM-formatted EC private key.
+    Handles raw base64, base64url, and existing PEM strings.
+    """
+    # 1. Clean up the input
+    key = key.strip().strip('"').strip("'")
+    
+    # 2. If it's already PEM, return as is
+    if "-----BEGIN" in key:
         return key
-    padded = key + "=" * ((4 - len(key) % 4) % 4)
-    raw_bytes = base64.urlsafe_b64decode(padded)
+        
+    # 3. Convert from base64/base64url to standard bytes
+    # Replace URL-safe characters just in case, then add padding
+    key_clean = key.replace("-", "+").replace("_", "/")
+    padded = key_clean + "=" * ((4 - len(key_clean) % 4) % 4)
+    
+    try:
+        raw_bytes = base64.b64decode(padded)
+    except Exception as e:
+        print(f"DEBUG: Failed to decode VAPID_PRIVATE_KEY: {e}")
+        return key # Fallback to original
+
+    # 4. Re-encode to standard base64 and wrap in PEM
     b64 = base64.b64encode(raw_bytes).decode()
     pem_body = "\n".join(textwrap.wrap(b64, 64))
     return f"-----BEGIN PRIVATE KEY-----\n{pem_body}\n-----END PRIVATE KEY-----"
@@ -38,11 +52,14 @@ async def send_push_notification(subscription: PushSubscription, title: str, bod
     payload = json.dumps({"title": title, "body": body})
 
     try:
+        # Use the cleaned PEM key
+        private_key_pem = _ensure_pem(settings.VAPID_PRIVATE_KEY)
+        
         await asyncio.to_thread(
             webpush,
             subscription_info=subscription_info,
             data=payload,
-            vapid_private_key=_ensure_pem(settings.VAPID_PRIVATE_KEY),
+            vapid_private_key=private_key_pem,
             vapid_claims={"sub": f"mailto:{settings.VAPID_CLAIM_EMAIL}"},
         )
         return True
