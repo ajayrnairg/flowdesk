@@ -32,23 +32,39 @@ export async function requestPushPermission(): Promise<boolean> {
 
 // Subscribe — always waits for SW activation via navigator.serviceWorker.ready
 export async function subscribeToPush(): Promise<PushSubscription> {
-    // .ready resolves only when the SW is fully ACTIVATED and controlling the page.
-    // Using the registration from .register() is NOT sufficient on mobile — it
-    // resolves when the SW is parsed/registered, not yet activated.
     const activeReg = await navigator.serviceWorker.ready
 
     const existing = await activeReg.pushManager.getSubscription()
     if (existing) return existing
 
     const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
-    if (!vapidKey) throw new Error("Missing VAPID key env var")
+    if (!vapidKey) throw new Error("NEXT_PUBLIC_VAPID_PUBLIC_KEY is not set")
 
     const convertedKey = urlBase64ToUint8Array(vapidKey)
+    
+    // Validate key before calling subscribe — gives a readable error instead of AbortError
+    if (convertedKey.length !== 65) {
+        throw new Error(
+            `VAPID public key decoded to ${convertedKey.length} bytes — must be exactly 65. ` +
+            `Key starts with: ${vapidKey.slice(0, 10)}...`
+        )
+    }
+    
+    if (convertedKey[0] !== 0x04) {
+        throw new Error(
+            `VAPID key first byte is 0x${convertedKey[0].toString(16)} — expected 0x04 (uncompressed EC point)`
+        )
+    }
 
-    return await activeReg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: convertedKey as unknown as BufferSource,
-    })
+    try {
+        return await activeReg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: convertedKey.buffer,  // ArrayBuffer, not Uint8Array (crucial for Android)
+        })
+    } catch (err) {
+        const msg = err instanceof Error ? `${err.name}: ${err.message}` : String(err)
+        throw new Error(`pushManager.subscribe failed: ${msg} | keyLen=${convertedKey.length} | UA=${navigator.userAgent}`)
+    }
 }
 
 // Save subscription
