@@ -57,13 +57,23 @@ export async function subscribeToPush(): Promise<PushSubscription> {
     }
 
     try {
+        // Try the standard Uint8Array first (preferred by most Chrome versions)
         return await activeReg.pushManager.subscribe({
             userVisibleOnly: true,
-            applicationServerKey: convertedKey.buffer as BufferSource, // ArrayBuffer cast for TS
+            applicationServerKey: convertedKey, 
         })
     } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err)
-        throw new Error(`subscribe failed: ${msg} | keyLen=${convertedKey.length}`)
+        console.warn("Subscribe with Uint8Array failed, trying ArrayBuffer...", err)
+        try {
+            // Fallback to the raw buffer (required by some older Android versions)
+            return await activeReg.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: convertedKey.buffer as BufferSource,
+            })
+        } catch (err2) {
+            const msg = err2 instanceof Error ? err2.message : String(err2)
+            throw new Error(`subscribe failed: ${msg} | keyLen=${convertedKey.length}`)
+        }
     }
 }
 
