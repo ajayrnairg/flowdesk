@@ -59,7 +59,7 @@ export async function subscribeToPush(): Promise<PushSubscription> {
     try {
         return await activeReg.pushManager.subscribe({
             userVisibleOnly: true,
-            applicationServerKey: convertedKey.buffer,  // ArrayBuffer, not Uint8Array (crucial for Android)
+            applicationServerKey: convertedKey.buffer as BufferSource, // ArrayBuffer cast for TS
         })
     } catch (err) {
         const msg = err instanceof Error ? `${err.name}: ${err.message}` : String(err)
