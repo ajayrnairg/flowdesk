@@ -1,49 +1,21 @@
 import json
 import asyncio
-import base64
 from pywebpush import webpush, WebPushException
 from core.config import settings
 from models.notification import PushSubscription
-
-# Robust import for the Vapid library
-try:
-    from vapid import Vapid
-except ImportError:
-    try:
-        from py_vapid import Vapid
-    except ImportError:
-        Vapid = None
+from vapid import Vapid
 
 def _get_vapid_obj():
     """
-    Returns a Vapid object loaded from the private key.
-    Uses the method verified to work in the local venv.
+    Returns a Vapid object loaded directly from the Base64URL private key string.
     """
-    if Vapid is None:
-        print("ERROR: Vapid library not found in environment")
-        return None
-
     raw_key = (settings.VAPID_PRIVATE_KEY or "").strip().strip('"').strip("'")
-    
-    # Create Vapid instance
-    vapid_obj = Vapid()
-    
-    # 1. Try loading as raw 32-byte hex (64 chars) - VERIFIED LOCALLY
-    if len(raw_key) == 64:
-        try:
-            raw_bytes = bytes.fromhex(raw_key)
-            # This specific method was tested and works with your hex key
-            return Vapid.from_raw(raw_bytes)
-        except Exception as e:
-            print(f"DEBUG: Vapid from_raw failed: {e}")
-
-    # 2. Try loading as base64url or PEM using the library's built-in loader
     try:
+        # Vapid.from_string is the standard way to load a base64url or PEM key
         return Vapid.from_string(raw_key.replace("\\n", "\n"))
     except Exception as e:
-        print(f"DEBUG: Vapid from_string failed: {e}")
-        
-    return None
+        print(f"ERROR: Could not load VAPID key: {e}")
+        return None
 
 async def send_push_notification(subscription: PushSubscription, title: str, body: str):
     """Sends a Web Push Notification using VAPID keys."""
@@ -60,7 +32,6 @@ async def send_push_notification(subscription: PushSubscription, title: str, bod
     try:
         vapid_obj = _get_vapid_obj()
         if not vapid_obj:
-            print(f"ERROR: Could not load VAPID key for sub {subscription.id}")
             return False
 
         await asyncio.to_thread(
