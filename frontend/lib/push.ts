@@ -60,7 +60,7 @@ export async function subscribeToPush(): Promise<PushSubscription> {
         // Try the standard Uint8Array first (preferred by most Chrome versions)
         return await activeReg.pushManager.subscribe({
             userVisibleOnly: true,
-            applicationServerKey: convertedKey, 
+            applicationServerKey: convertedKey as BufferSource, 
         })
     } catch (err) {
         console.warn("Subscribe with Uint8Array failed, trying ArrayBuffer...", err)
