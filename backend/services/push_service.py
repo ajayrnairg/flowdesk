@@ -12,21 +12,26 @@ def _get_private_key():
     1. Raw 32-byte hex string (Recommended for Render)
     2. PEM formatted string
     """
-    key_str = settings.VAPID_PRIVATE_KEY.strip().strip('"').strip("'")
+    raw_key = settings.VAPID_PRIVATE_KEY or ""
+    key_str = raw_key.strip().strip('"').strip("'")
+    
+    # DEBUG: Help identify what's actually reaching the backend
+    print(f"DEBUG VAPID KEY: len={len(key_str)} prefix={key_str[:5]}... type={'HEX' if len(key_str) == 64 else 'PEM/OTHER'}")
     
     # If it's hex (64 chars), load it directly as a 32-byte integer
     if len(key_str) == 64:
         try:
             d = int(key_str, 16)
+            # SEC1 format is often more compatible for raw EC keys
             return ec.derive_private_key(d, ec.SECP256R1()).private_bytes(
                 encoding=serialization.Encoding.PEM,
-                format=serialization.PrivateFormat.PKCS8,
+                format=serialization.PrivateFormat.TraditionalOpenSSL,
                 encryption_algorithm=serialization.NoEncryption()
             ).decode()
-        except ValueError:
+        except Exception as e:
+            print(f"DEBUG VAPID HEX ERROR: {e}")
             pass
 
-    # Fallback: assume it's PEM (or handle literal \n)
     return key_str.replace("\\n", "\n")
 
 async def send_push_notification(subscription: PushSubscription, title: str, body: str):
