@@ -1,38 +1,41 @@
 import json
 import asyncio
+import base64
 from pywebpush import webpush, WebPushException
 from core.config import settings
 from models.notification import PushSubscription
-from cryptography.hazmat.primitives.asymmetric import ec
-from cryptography.hazmat.primitives import serialization
+from vapid import Vapid
 
-def _get_private_key():
+def _get_vapid_obj():
     """
-    Load the private key. Supports:
-    1. Raw 32-byte hex string (Recommended for Render)
-    2. PEM formatted string
+    Returns a Vapid object loaded from the private key.
+    Handles:
+    1. Raw 32-byte hex string
+    2. Base64url encoded private key
+    3. PEM string
     """
-    raw_key = settings.VAPID_PRIVATE_KEY or ""
-    key_str = raw_key.strip().strip('"').strip("'")
+    raw_key = (settings.VAPID_PRIVATE_KEY or "").strip().strip('"').strip("'")
     
-    # DEBUG: Help identify what's actually reaching the backend
-    print(f"DEBUG VAPID KEY: len={len(key_str)} prefix={key_str[:5]}... type={'HEX' if len(key_str) == 64 else 'PEM/OTHER'}")
+    # Create Vapid instance
+    vapid_obj = Vapid()
     
-    # If it's hex (64 chars), load it directly as a 32-byte integer
-    if len(key_str) == 64:
+    # 1. Try loading as raw 32-byte hex (64 chars)
+    if len(raw_key) == 64:
         try:
-            d = int(key_str, 16)
-            # SEC1 format is often more compatible for raw EC keys
-            return ec.derive_private_key(d, ec.SECP256R1()).private_bytes(
-                encoding=serialization.Encoding.PEM,
-                format=serialization.PrivateFormat.TraditionalOpenSSL,
-                encryption_algorithm=serialization.NoEncryption()
-            ).decode()
+            # Vapid.from_raw expects 32 bytes of binary data
+            raw_bytes = bytes.fromhex(raw_key)
+            return Vapid.from_raw(raw_bytes)
         except Exception as e:
-            print(f"DEBUG VAPID HEX ERROR: {e}")
-            pass
+            print(f"DEBUG: Vapid hex load failed: {e}")
 
-    return key_str.replace("\\n", "\n")
+    # 2. Try loading as base64url or PEM using the library's built-in loader
+    try:
+        # from_string handles PEM and base64url automatically
+        return Vapid.from_string(raw_key.replace("\\n", "\n"))
+    except Exception as e:
+        print(f"DEBUG: Vapid string load failed: {e}")
+        
+    return None
 
 async def send_push_notification(subscription: PushSubscription, title: str, body: str):
     """Sends a Web Push Notification using VAPID keys."""
@@ -47,11 +50,16 @@ async def send_push_notification(subscription: PushSubscription, title: str, bod
     payload = json.dumps({"title": title, "body": body})
 
     try:
+        vapid_obj = _get_vapid_obj()
+        if not vapid_obj:
+            print(f"ERROR: Could not load VAPID key for sub {subscription.id}")
+            return False
+
         await asyncio.to_thread(
             webpush,
             subscription_info=subscription_info,
             data=payload,
-            vapid_private_key=_get_private_key(),
+            vapid_private_key=vapid_obj,
             vapid_claims={"sub": f"mailto:{settings.VAPID_CLAIM_EMAIL}"},
         )
         return True
