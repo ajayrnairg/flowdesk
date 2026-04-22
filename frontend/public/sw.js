@@ -24,7 +24,7 @@ self.addEventListener("push", (event) => {
       icon: "/icons/icon-192.png",
       badge: "/icons/icon-192.png",
       data: {
-        url: data.url || "/planner",
+        url: data.url || "/dashboard/planner",
       },
     }
 
@@ -48,7 +48,7 @@ self.addEventListener("push", (event) => {
 self.addEventListener("notificationclick", (event) => {
   event.notification.close()
 
-  const targetUrl = event.notification.data?.url || "/planner"
+  const targetUrl = event.notification.data?.url || "/dashboard/planner"
 
   event.waitUntil(
     self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
