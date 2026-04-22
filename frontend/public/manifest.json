@@ -1,5 +1,6 @@
 {
     "name": "FlowDesk",
+    "gcm_sender_id": "103953800507",
     "short_name": "FlowDesk",
     "theme_color": "#0f172a",
     "background_color": "#0f172a",

@@ -43,8 +43,12 @@ export async function subscribeToPush(): Promise<PushSubscription> {
         await existing.unsubscribe()
     }
 
-    const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+    const vapidKey = (process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "").trim()
     if (!vapidKey) throw new Error("NEXT_PUBLIC_VAPID_PUBLIC_KEY is not set")
+
+    if (!window.isSecureContext) {
+        throw new Error("Push notifications require a secure context (HTTPS)")
+    }
 
     const convertedKey = urlBase64ToUint8Array(vapidKey)
 
