@@ -3,12 +3,24 @@ import asyncio
 from pywebpush import webpush, WebPushException
 from core.config import settings
 from models.notification import PushSubscription
-from vapid import Vapid
+
+# Robust import for the Vapid library (handles both 'vapid' and 'py_vapid' package names)
+try:
+    from vapid import Vapid
+except ImportError:
+    try:
+        from py_vapid import Vapid
+    except ImportError:
+        Vapid = None
 
 def _get_vapid_obj():
     """
     Returns a Vapid object loaded directly from the Base64URL private key string.
     """
+    if Vapid is None:
+        print("ERROR: Vapid library not found in environment")
+        return None
+
     raw_key = (settings.VAPID_PRIVATE_KEY or "").strip().strip('"').strip("'")
     try:
         # Vapid.from_string is the standard way to load a base64url or PEM key
