@@ -28,3 +28,4 @@ class User(Base):
     tasks = relationship("Task", back_populates="owner", cascade="all, delete-orphan")
     notifications = relationship("NotificationLog", back_populates="user", cascade="all, delete-orphan")
     push_subscriptions = relationship("PushSubscription", back_populates="user", cascade="all, delete-orphan")
+    knowledge_items = relationship("KnowledgeItem", back_populates="user", cascade="all, delete-orphan")

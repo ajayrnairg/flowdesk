@@ -27,5 +27,10 @@ class Settings(BaseSettings):
     DIGEST_HOUR_UTC: int = 1
     DIGEST_WINDOW_MINUTES: int = 15
 
+    # Knowledge Base
+    JINA_TIMEOUT_SECONDS: int = 15
+    GITHUB_TOKEN: str = "" # Optional: empty string means unauthenticated
+    GEMINI_API_KEY: str # Ensure this is present
+
 # Instantiate settings to be imported and used across the app
 settings = Settings()

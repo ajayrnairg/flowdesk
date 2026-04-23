@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
 from core.database import engine
-from routers import auth, tasks, notifications
+from routers import auth, tasks, notifications, knowledge
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -56,6 +56,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(tasks.router)
 app.include_router(notifications.router)
+app.include_router(knowledge.router)
 
 @app.api_route("/health", methods=["GET", "HEAD"], tags=["System"])
 async def health_check():
