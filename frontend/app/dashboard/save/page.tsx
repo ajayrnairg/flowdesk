@@ -28,17 +28,17 @@ function SaveForm() {
 
     const url = params.get("url") || ""
     const titleParam = params.get("title") || ""
-    const text = params.get("text") || ""
+    const textParam = params.get("text") || ""
     const type = params.get("type") || "article"
 
     const [title, setTitle] = useState(titleParam)
+    const [selectedText, setSelectedText] = useState(textParam)
 
     // 🔐 Auth check
     useEffect(() => {
         if (!isLoggedIn()) {
             const currentUrl = `${pathname}?${params.toString()}`
             const returnUrl = encodeURIComponent(currentUrl)
-            // Using router.replace instead of redirect() because isLoggedIn checks localStorage
             router.replace(`/login?redirect=${returnUrl}`)
         }
     }, [router, pathname, params])
@@ -47,11 +47,12 @@ function SaveForm() {
         setLoading(true)
 
         try {
+            // FIXED: Mapping frontend fields to backend BookmarkletPayload
             await api.post("/knowledge/bookmarklet", {
                 url,
-                title,
-                text,
-                type,
+                page_title: title,
+                selected_text: selectedText,
+                content_type: type,
             })
 
             setSuccess(true)
@@ -94,9 +95,10 @@ function SaveForm() {
             <div>
                 <p className="text-sm text-gray-500 mb-1">Selected Text</p>
                 <Textarea
-                    value={text}
-                    readOnly
+                    value={selectedText}
+                    onChange={(e) => setSelectedText(e.target.value)}
                     className="max-h-[200px] overflow-y-auto"
+                    placeholder="Enter or edit the selected text..."
                 />
             </div>
 
