@@ -47,13 +47,18 @@ function SaveForm() {
         setLoading(true)
 
         try {
-            // FIXED: Mapping frontend fields to backend BookmarkletPayload
-            await api.post("/knowledge/bookmarklet", {
-                url,
-                page_title: title,
-                selected_text: selectedText,
-                content_type: type,
-            })
+            if (!selectedText.trim()) {
+                // Let backend extract YouTube/GitHub/Articles automatically
+                await api.post("/knowledge", { url })
+            } else {
+                // Save highlighted text directly
+                await api.post("/knowledge/bookmarklet", {
+                    url,
+                    page_title: title,
+                    selected_text: selectedText,
+                    content_type: type,
+                })
+            }
 
             setSuccess(true)
         } catch (err) {
