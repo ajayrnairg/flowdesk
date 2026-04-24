@@ -14,7 +14,12 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
     # Pydantic v2 config for loading from .env file
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
+    # Allow extra fields to prevent crashes when new variables are added to .env
+    model_config = SettingsConfigDict(
+        env_file=".env", 
+        env_file_encoding="utf-8",
+        extra="ignore"
+    )
 
     # Notifications & Digest
     NOTIFICATION_SECRET: str
@@ -31,6 +36,10 @@ class Settings(BaseSettings):
     JINA_TIMEOUT_SECONDS: int = 15
     GITHUB_TOKEN: str = "" # Optional: empty string means unauthenticated
     GEMINI_API_KEY: str # Ensure this is present
+
+    # Vector / Search / Redis (for rate limiting or caching)
+    UPSTASH_REDIS_REST_URL: str = ""
+    UPSTASH_REDIS_REST_TOKEN: str = ""
 
 # Instantiate settings to be imported and used across the app
 settings = Settings()

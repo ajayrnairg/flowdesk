@@ -41,6 +41,12 @@ class KnowledgeItem(Base):
 
     user = relationship("User", back_populates="knowledge_items")
     collections = relationship("CollectionItem", back_populates="knowledge_item", cascade="all, delete-orphan")
+    chunks = relationship(
+        "KnowledgeChunk",
+        back_populates="knowledge_item",
+        cascade="all, delete-orphan",
+        lazy="raise",
+    )
 
     __table_args__ = (
         Index("ix_knowledge_items_user_status", "user_id", "status"),

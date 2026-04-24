@@ -14,7 +14,7 @@ async def generate_summary(title: str, raw_text: str, content_type: str) -> str:
         return ""
         
     # Free-tier friendly model
-    model = genai.GenerativeModel("gemini-1.5-flash")
+    model = genai.GenerativeModel("gemini-2.5-flash")
     
     # Truncate to first 3000 chars to save tokens and ensure fast latency
     truncated_text = raw_text[:3000]

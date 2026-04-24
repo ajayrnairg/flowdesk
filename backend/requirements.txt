@@ -6,6 +6,7 @@ uvicorn[standard]>=0.23.0
 sqlalchemy>=2.0.19
 asyncpg>=0.28.0
 alembic>=1.11.2
+pgvector>=0.2.5
 
 # Data Validation & Settings (Pydantic v2)
 pydantic>=2.1.1
