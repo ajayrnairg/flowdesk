@@ -8,6 +8,10 @@ from services.jina_extractor import fetch_with_jina, estimate_read_minutes
 from services.youtube_extractor import fetch_youtube_content
 from services.github_extractor import fetch_github_content
 from services.gemini_summariser import generate_summary
+from services.rag_indexer import index_knowledge_item
+import logging
+
+logger = logging.getLogger(__name__)
 
 async def run_summary_only(item_id: UUID, db: AsyncSession):
     """
@@ -32,6 +36,12 @@ async def run_summary_only(item_id: UUID, db: AsyncSession):
         item.updated_at = datetime.now(timezone.utc)
         
         await db.commit()
+        
+        try:
+            logger.info(f"Starting RAG indexing for item {item.id}")
+            await index_knowledge_item(item.id, db)
+        except Exception as e:
+            logger.error(f"Failed to index item {item.id}, but ingestion completed: {e}")
     except Exception as e:
         # Fallback error handling
         try:
@@ -116,6 +126,12 @@ async def run_ingestion_pipeline(item_id: UUID, db: AsyncSession):
         item.status = ItemStatus.DONE.value
         item.updated_at = datetime.now(timezone.utc)
         await db.commit()
+
+        try:
+            logger.info(f"Starting RAG indexing for item {item.id}")
+            await index_knowledge_item(item.id, db)
+        except Exception as e:
+            logger.error(f"Failed to index item {item.id}, but ingestion completed: {e}")
 
     except Exception as e:
         # Catch-all failsafe: ensure item does not get stuck in 'processing'

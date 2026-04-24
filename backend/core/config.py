@@ -41,5 +41,8 @@ class Settings(BaseSettings):
     UPSTASH_REDIS_REST_URL: str = ""
     UPSTASH_REDIS_REST_TOKEN: str = ""
 
+    # Add to Settings class
+    EMBEDDING_MODEL: str = "models/gemini-embedding-2"
+
 # Instantiate settings to be imported and used across the app
 settings = Settings()

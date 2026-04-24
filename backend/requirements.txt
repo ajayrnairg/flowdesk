@@ -39,4 +39,7 @@ aiosqlite>=0.19.0
 youtube-transcript-api
 pdfplumber
 google-generativeai
+langchain==1.2.15
+langchain-text-splitters==1.1.2
+upstash-redis==1.7.0
 
