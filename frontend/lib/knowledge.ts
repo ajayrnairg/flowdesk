@@ -59,3 +59,8 @@ export async function getKnowledgeItems(filters?: {
 export async function deleteKnowledgeItem(id: string): Promise<void> {
     await api.delete(`/knowledge/${id}`)
 }
+
+export async function reprocessItems(): Promise<{ message: string }> {
+    const res = await api.post("/knowledge/reprocess")
+    return res.data
+}

@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react"
 import {
     getKnowledgeItems,
     deleteKnowledgeItem,
+    reprocessItems,
     KnowledgeItemOut,
     ContentType,
 } from "@/lib/knowledge"
@@ -11,7 +12,9 @@ import KnowledgeItemCard from "@/components/knowledge/KnowledgeItemCard"
 import AddUrlDialog from "@/components/knowledge/AddUrlDialog"
 import { Input } from "@/components/ui/input"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
+import { RefreshCw } from "lucide-react"
 import api from "@/lib/api"
 
 const filters = [
@@ -26,6 +29,7 @@ const filters = [
 export default function KnowledgePageClient() {
     const [items, setItems] = useState<KnowledgeItemOut[]>([])
     const [loading, setLoading] = useState(true)
+    const [reprocessing, setReprocessing] = useState(false)
     const [query, setQuery] = useState("")
     const [active, setActive] = useState<string | undefined>(undefined)
 
@@ -120,6 +124,20 @@ export default function KnowledgePageClient() {
         }
     }
 
+    const handleReprocess = async () => {
+        setReprocessing(true)
+        try {
+            const res = await reprocessItems()
+            toast.success(res.message)
+            // Refresh the list after a short delay to see if status changed
+            setTimeout(fetchData, 1000)
+        } catch {
+            toast.error("Reprocess request failed")
+        } finally {
+            setReprocessing(false)
+        }
+    }
+
     return (
         <div 
             className="p-6 space-y-6 relative min-h-screen"
@@ -137,7 +155,18 @@ export default function KnowledgePageClient() {
             {/* Header */}
             <div className="flex justify-between items-center">
                 <h1 className="text-2xl font-semibold">Knowledge Base</h1>
-                <AddUrlDialog onAdded={fetchData} />
+                <div className="flex gap-2">
+                    <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={handleReprocess}
+                        disabled={reprocessing}
+                    >
+                        <RefreshCw className={`mr-2 h-4 w-4 ${reprocessing ? "animate-spin" : ""}`} />
+                        {reprocessing ? "Reprocessing..." : "Reprocess Failed"}
+                    </Button>
+                    <AddUrlDialog onAdded={fetchData} />
+                </div>
             </div>
 
             {/* Filters */}
