@@ -38,12 +38,12 @@ export default function LibraryItemCard({ item }: { item: KnowledgeItemOut }) {
     }
 
     const handleClick = () => {
-        if (localItem.read_status === "UNREAD") {
-            handleStatus("READING")
-        }
-
         if (localItem.url) {
             window.open(localItem.url, "_blank")
+        }
+
+        if (localItem.read_status === "UNREAD") {
+            handleStatus("READING")
         }
     }
 
@@ -54,35 +54,42 @@ export default function LibraryItemCard({ item }: { item: KnowledgeItemOut }) {
     }
 
     return (
-        <div className="w-44 cursor-pointer">
-            <div onClick={handleClick} className="relative">
+        <div className="w-44 group">
+            <div onClick={handleClick} className="cursor-pointer space-y-2">
                 {/* Image */}
-                {localItem.cover_image_url ? (
-                    <img
-                        src={localItem.cover_image_url}
-                        className="w-full h-28 object-cover rounded-lg"
-                    />
-                ) : (
-                    <div
-                        className={`w-full h-28 rounded-lg bg-gradient-to-br ${gradients[localItem.content_type]
-                            }`}
-                    />
-                )}
+                <div className="relative">
+                    {localItem.cover_image_url ? (
+                        <img
+                            src={localItem.cover_image_url}
+                            className="w-full h-28 object-cover rounded-lg transition-transform group-hover:scale-[1.02]"
+                        />
+                    ) : (
+                        <div
+                            className={`w-full h-28 rounded-lg bg-gradient-to-br transition-transform group-hover:scale-[1.02] ${gradients[localItem.content_type]
+                                }`}
+                        />
+                    )}
 
-                {/* Status */}
-                <div
-                    className={`absolute top-2 right-2 w-3 h-3 rounded-full ${statusDot[localItem.read_status]}`}
-                />
+                    {/* Status */}
+                    <div
+                        className={`absolute top-2 right-2 w-3 h-3 rounded-full border-2 border-white ${statusDot[localItem.read_status]}`}
+                    />
+                </div>
+
+                {/* Info */}
+                <div className="flex justify-between items-start">
+                    <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium line-clamp-2 leading-tight group-hover:text-primary transition-colors">
+                            {localItem.title || "Untitled"}
+                        </p>
+                    </div>
+                </div>
             </div>
 
-            {/* Info */}
-            <div className="flex justify-between items-start mt-2">
+            <div className="flex justify-between items-center -mt-4 relative z-10">
                 <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium line-clamp-2 leading-tight">
-                        {localItem.title || "Untitled"}
-                    </p>
                     {localItem.estimated_read_minutes && (
-                        <p className="text-xs text-muted-foreground mt-1">
+                        <p className="text-xs text-muted-foreground">
                             {localItem.estimated_read_minutes} min
                         </p>
                     )}
@@ -91,7 +98,12 @@ export default function LibraryItemCard({ item }: { item: KnowledgeItemOut }) {
                 {/* Menu */}
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <Button size="icon" variant="ghost" className="h-8 w-8 -mr-2">
+                        <Button 
+                            size="icon" 
+                            variant="ghost" 
+                            className="h-8 w-8 -mr-2 hover:bg-muted"
+                            onClick={(e) => e.stopPropagation()}
+                        >
                             <MoreVertical className="w-4 h-4" />
                         </Button>
                     </DropdownMenuTrigger>

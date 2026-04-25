@@ -244,6 +244,7 @@ class LibraryItemPreview(BaseModel):
     Raw text is excluded (too large) and summary is excluded (not needed for shelf).
     """
     id: uuid.UUID
+    url: str | None
     title: str | None
     cover_image_url: str | None
     content_type: str

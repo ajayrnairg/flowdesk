@@ -26,6 +26,11 @@ export async function getLibrary(): Promise<LibraryResponse> {
     return res.data
 }
 
+export async function getCollections(): Promise<LibraryCollection[]> {
+    const res = await api.get<LibraryCollection[]>("/collections")
+    return res.data
+}
+
 export async function getCollection(collectionId: string): Promise<LibraryCollection> {
     const res = await api.get<LibraryCollection>(`/collections/${collectionId}`)
     return res.data

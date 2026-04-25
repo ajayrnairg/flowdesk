@@ -7,6 +7,7 @@ import {
     DialogContent,
     DialogHeader,
     DialogTitle,
+    DialogDescription,
     DialogTrigger,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -25,8 +26,10 @@ const colors = [
 ]
 
 export default function CreateCollectionDialog({ onCreated }: { onCreated: () => void }) {
+    const [open, setOpen] = useState(false)
     const [name, setName] = useState("")
     const [color, setColor] = useState(colors[0])
+    const [loading, setLoading] = useState(false)
 
     const handleSubmit = async () => {
         if (!name.trim()) {
@@ -34,12 +37,22 @@ export default function CreateCollectionDialog({ onCreated }: { onCreated: () =>
             return
         }
 
-        await createCollection(name, color)
-        onCreated()
+        setLoading(true)
+        try {
+            await createCollection(name, color)
+            toast.success("Collection created")
+            setName("")
+            setOpen(false)
+            onCreated()
+        } catch (error) {
+            toast.error("Failed to create collection")
+        } finally {
+            setLoading(false)
+        }
     }
 
     return (
-        <Dialog>
+        <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
                 <Button>New Collection</Button>
             </DialogTrigger>
@@ -47,6 +60,9 @@ export default function CreateCollectionDialog({ onCreated }: { onCreated: () =>
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>Create Collection</DialogTitle>
+                    <DialogDescription>
+                        Give your collection a name and a color to organize your saved items.
+                    </DialogDescription>
                 </DialogHeader>
 
                 <div className="space-y-4 py-4">
@@ -86,7 +102,9 @@ export default function CreateCollectionDialog({ onCreated }: { onCreated: () =>
                     </div>
                 </div>
 
-                <Button onClick={handleSubmit} className="w-full">Create Collection</Button>
+                <Button onClick={handleSubmit} disabled={loading} className="w-full">
+                    {loading ? "Creating..." : "Create Collection"}
+                </Button>
             </DialogContent>
         </Dialog>
     )

@@ -1,14 +1,23 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import api from "@/lib/api"
+import { getCollections, LibraryCollection } from "@/lib/library"
 import {
     Dialog,
     DialogTrigger,
     DialogContent,
     DialogHeader,
     DialogTitle,
+    DialogDescription,
 } from "@/components/ui/dialog"
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
@@ -17,6 +26,14 @@ export default function AddUrlDialog({ onAdded }: { onAdded: () => void }) {
     const [url, setUrl] = useState("")
     const [open, setOpen] = useState(false)
     const [loading, setLoading] = useState(false)
+    const [collections, setCollections] = useState<LibraryCollection[]>([])
+    const [selectedCollectionId, setSelectedCollectionId] = useState<string>("")
+
+    useEffect(() => {
+        if (open) {
+            getCollections().then(setCollections).catch(() => toast.error("Failed to load collections"))
+        }
+    }, [open])
 
     const isValidUrl = (val: string) => {
         try {
@@ -36,20 +53,22 @@ export default function AddUrlDialog({ onAdded }: { onAdded: () => void }) {
         setLoading(true)
 
         try {
-            const res = await api.post("/knowledge", { url })
+            const res = await api.post("/knowledge", { 
+                url,
+                collection_id: selectedCollectionId || undefined
+            })
 
             if (res.data?.status === "use_bookmarklet") {
                 toast("Use bookmarklet", {
                     description: "Twitter/LinkedIn detected. Use FlowDesk bookmarklet."
                 })
             } else if (res.status === 202) {
-                toast("Saving...", {
-                    description: "Content will be ready shortly"
-                })
+                toast.success("Ingestion started")
             }
 
             setOpen(false)
             setUrl("")
+            setSelectedCollectionId("")
             onAdded()
         } catch {
             toast.error("Failed to save")
@@ -67,17 +86,45 @@ export default function AddUrlDialog({ onAdded }: { onAdded: () => void }) {
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>Save URL</DialogTitle>
+                    <DialogDescription>
+                        Paste a URL to automatically extract content and summarize it.
+                    </DialogDescription>
                 </DialogHeader>
 
-                <div className="space-y-4">
-                    <Input
-                        placeholder="https://..."
-                        value={url}
-                        onChange={(e) => setUrl(e.target.value)}
-                    />
+                <div className="space-y-4 pt-4">
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium">URL</label>
+                        <Input
+                            placeholder="https://..."
+                            value={url}
+                            onChange={(e) => setUrl(e.target.value)}
+                        />
+                    </div>
 
-                    <Button onClick={handleSubmit} disabled={loading}>
-                        {loading ? "Saving..." : "Save"}
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium">Add to Collection (Optional)</label>
+                        <Select value={selectedCollectionId} onValueChange={setSelectedCollectionId}>
+                            <SelectTrigger>
+                                <SelectValue placeholder="Select a collection..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {collections.map((c) => (
+                                    <SelectItem key={c.id} value={c.id}>
+                                        <div className="flex items-center gap-2">
+                                            <div 
+                                                className="w-2 h-2 rounded-full" 
+                                                style={{ backgroundColor: c.color || "gray" }}
+                                            />
+                                            {c.name}
+                                        </div>
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+
+                    <Button onClick={handleSubmit} disabled={loading} className="w-full">
+                        {loading ? "Saving..." : "Save to Knowledge Base"}
                     </Button>
                 </div>
             </DialogContent>
