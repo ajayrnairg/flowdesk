@@ -1,6 +1,6 @@
 import io
 import asyncio
-import pdfplumber
+import pypdf
 
 async def extract_pdf_text(file_bytes: bytes, filename: str) -> dict:
     """
@@ -13,12 +13,12 @@ async def extract_pdf_text(file_bytes: bytes, filename: str) -> dict:
 
     def _sync_extract():
         text_blocks = []
-        with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
-            page_count = len(pdf.pages)
-            for page in pdf.pages:
-                extracted = page.extract_text()
-                if extracted:
-                    text_blocks.append(extracted)
+        reader = pypdf.PdfReader(io.BytesIO(file_bytes))
+        page_count = len(reader.pages)
+        for page in reader.pages:
+            extracted = page.extract_text()
+            if extracted:
+                text_blocks.append(extracted)
         
         # Clean up excessive whitespace
         raw_text = "\n".join(text_blocks).strip()

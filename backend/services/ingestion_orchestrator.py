@@ -43,6 +43,7 @@ async def run_summary_only(item_id: UUID, db: AsyncSession):
         except Exception as e:
             logger.error(f"Failed to index item {item.id}, but ingestion completed: {e}")
     except Exception as e:
+        logger.exception(f"Unhandled summary error for {item_id}: {e}")
         # Fallback error handling
         try:
             stmt = select(KnowledgeItem).where(KnowledgeItem.id == item_id)
@@ -52,8 +53,8 @@ async def run_summary_only(item_id: UUID, db: AsyncSession):
                 item.status = ItemStatus.FAILED.value
                 item.updated_at = datetime.now(timezone.utc)
                 await db.commit()
-        except Exception:
-            pass
+        except Exception as inner_e:
+            logger.error(f"Failed to update status to FAILED for {item_id}: {inner_e}")
 
 async def run_ingestion_pipeline(item_id: UUID, db: AsyncSession):
     """
@@ -97,6 +98,7 @@ async def run_ingestion_pipeline(item_id: UUID, db: AsyncSession):
 
         # 3. Handle Extractor Errors
         if "error" in ext_result:
+            logger.error(f"Extractor error for {item.id}: {ext_result['error']}")
             # We don't overwrite user's title with empty strings on failure
             item.status = ItemStatus.FAILED.value
             item.is_processed = False
@@ -134,6 +136,7 @@ async def run_ingestion_pipeline(item_id: UUID, db: AsyncSession):
             logger.error(f"Failed to index item {item.id}, but ingestion completed: {e}")
 
     except Exception as e:
+        logger.exception(f"Unhandled ingestion error for {item_id}: {e}")
         # Catch-all failsafe: ensure item does not get stuck in 'processing'
         try:
             stmt = select(KnowledgeItem).where(KnowledgeItem.id == item_id)
@@ -143,5 +146,5 @@ async def run_ingestion_pipeline(item_id: UUID, db: AsyncSession):
                 fallback_item.status = ItemStatus.FAILED.value
                 fallback_item.updated_at = datetime.now(timezone.utc)
                 await db.commit()
-        except Exception:
-            pass # DB connection might be broken, nothing we can do here
+        except Exception as inner_e:
+            logger.error(f"Failed to update status to FAILED for {item_id}: {inner_e}")

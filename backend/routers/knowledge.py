@@ -157,6 +157,38 @@ async def ingest_pdf(
     
     return {"status": "accepted", "id": new_item.id}
 
+@router.post("/reprocess", status_code=status.HTTP_202_ACCEPTED)
+async def reprocess_failed_pending(
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Ad-hoc endpoint to retry all failed or pending items."""
+    stmt = select(KnowledgeItem).where(
+        KnowledgeItem.user_id == current_user.id,
+        KnowledgeItem.status.in_([ItemStatus.FAILED.value, ItemStatus.PENDING.value])
+    )
+    result = await db.execute(stmt)
+    items = result.scalars().all()
+
+    # Define the worker functions
+    async def safe_ingestion_runner(item_id: uuid.UUID):
+        async with AsyncSessionLocal() as bg_db:
+            await run_ingestion_pipeline(item_id, bg_db)
+
+    async def safe_summary_runner(item_id: uuid.UUID):
+        async with AsyncSessionLocal() as bg_db:
+            await run_summary_only(item_id, bg_db)
+
+    for item in items:
+        # If raw_text is already extracted, we only need to summarize and index
+        if item.raw_text and item.content_type in ["pdf"]:
+            background_tasks.add_task(safe_summary_runner, item.id)
+        else:
+            background_tasks.add_task(safe_ingestion_runner, item.id)
+
+    return {"status": "accepted", "message": f"Queued {len(items)} items for reprocessing."}
+
 @router.get("", response_model=List[KnowledgeItemOut])
 async def list_knowledge(
     content_type: Optional[str] = None,
