@@ -17,6 +17,9 @@ from services.content_detector import detect_content_type
 from services.pdf_extractor import extract_pdf_text
 from services.ingestion_orchestrator import run_ingestion_pipeline, run_summary_only
 
+from datetime import datetime, timezone
+from schemas.knowledge import ReadStatusUpdate
+
 router = APIRouter(prefix="/knowledge", tags=["knowledge"])
 
 async def _get_item_or_404(item_id: uuid.UUID, current_user: User, db: AsyncSession) -> KnowledgeItem:
@@ -264,3 +267,40 @@ async def delete_knowledge_item(
     item = await _get_item_or_404(item_id, current_user, db)
     await db.delete(item)
     await db.commit()
+
+# ---------------------------------------------------------------------------
+# PATCH /knowledge/{item_id}/read-status — Update Read Progress
+# ---------------------------------------------------------------------------
+
+@router.patch("/{item_id}/read-status", response_model=KnowledgeItemOut)
+async def update_read_status(
+    item_id: uuid.UUID,
+    payload: ReadStatusUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Updates the read/progress state of an article/PDF/video.
+    Automatically timestamps interaction and completion metrics.
+    """
+    # Fetch with ownership check (identical pattern to get_task_or_fail)
+    stmt = select(KnowledgeItem).where(
+        KnowledgeItem.id == item_id,
+        KnowledgeItem.user_id == current_user.id
+    )
+    result = await db.execute(stmt)
+    item = result.scalar_one_or_none()
+
+    if not item:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Knowledge item not found")
+
+    item.read_status = payload.read_status
+    item.last_opened_at = datetime.now(timezone.utc)
+
+    # Only set read_at once (when the user finishes it the first time)
+    if payload.read_status == "DONE" and item.read_at is None:
+        item.read_at = datetime.now(timezone.utc)
+
+    await db.commit()
+    await db.refresh(item)
+    return item

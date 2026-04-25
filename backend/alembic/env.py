@@ -18,6 +18,7 @@ from models.user import Base
 import models.task  # Ensure Task model is loaded for autogenerate
 import models.notification  # Ensure NotificationLog + PushSubscription are loaded for autogenerate
 import models.knowledge  # Ensure Knowledge models are loaded for autogenerate
+import models.knowledge_chunk  # Ensure KnowledgeChunk model is loaded for autogenerate
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

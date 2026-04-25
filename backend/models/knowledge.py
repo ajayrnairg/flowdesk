@@ -2,6 +2,7 @@ import enum
 import uuid
 from datetime import datetime, timezone
 from sqlalchemy import String, Boolean, DateTime, ForeignKey, Text, Integer, Index, UniqueConstraint, Enum as SAEnum
+from sqlalchemy.sql import expression
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID, ARRAY
 from core.database import Base
@@ -77,10 +78,28 @@ class Collection(Base):
     name: Mapped[str] = mapped_column(String, nullable=False)
     description: Mapped[str] = mapped_column(Text, nullable=True)
 
+    # Visual identity
+    color: Mapped[str] = mapped_column(String(7), nullable=True)      # hex e.g. "#6366f1"
+    emoji: Mapped[str] = mapped_column(String(8), nullable=True)      # e.g. "📰"
+
+    # Auto-collections: created once per user per content_type, never duplicated.
+    # is_default=True means it was system-created and cannot be deleted by the user.
+    is_default: Mapped[bool] = mapped_column(Boolean, default=False, server_default=expression.false(), nullable=False)
+    # Stores the content_type this default collection maps to (NULL for custom collections).
+    default_content_type: Mapped[str] = mapped_column(String, nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     items = relationship("CollectionItem", back_populates="collection", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        # Guarantees only one default collection per content_type per user.
+        # NULL default_content_type (custom collections) is excluded from this constraint
+        # by the WHERE clause — but that requires a partial unique index, which we
+        # handle at the application layer via get_or_create_default_collection.
+        Index("ix_collections_user_id", "user_id"),
+    )
 
 class CollectionItem(Base):
     __tablename__ = "collection_items"

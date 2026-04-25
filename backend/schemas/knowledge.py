@@ -166,35 +166,123 @@ class KnowledgeItemUpdate(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# Collection schemas (stub — full endpoints in Stage 6)
+# Collection schemas
 # ---------------------------------------------------------------------------
 
 class CollectionCreate(BaseModel):
+    """POST /collections — create a custom collection."""
     name: Annotated[str, Field(min_length=1, max_length=255)]
     description: str | None = None
     color: str | None = Field(None, pattern=r"^#[0-9a-fA-F]{6}$")
+    emoji: str | None = Field(None, max_length=8)
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class CollectionUpdate(BaseModel):
+    """PATCH /collections/{id} — rename, recolor, or re-emoji a collection."""
+    name: Annotated[str, Field(min_length=1, max_length=255)] | None = None
+    description: str | None = None
+    color: str | None = Field(None, pattern=r"^#[0-9a-fA-F]{6}$")
+    emoji: str | None = Field(None, max_length=8)
+
+    @model_validator(mode="after")
+    def at_least_one(self) -> "CollectionUpdate":
+        if all(v is None for v in [self.name, self.description, self.color, self.emoji]):
+            raise ValueError("PATCH body must contain at least one field")
+        return self
 
     model_config = ConfigDict(extra="forbid")
 
 
 class CollectionOut(BaseModel):
+    """Full collection metadata — returned by list and single-collection endpoints."""
     id: uuid.UUID
     user_id: uuid.UUID
     name: str
     description: str | None
     color: str | None
-    created_at: datetime
-    # item_count populated via a separate COUNT query in the router
+    emoji: str | None
+    is_default: bool
+    default_content_type: str | None
+    # item_count and unread_count are computed by the router via subquery —
+    # they are NOT stored columns, so we use a default of 0 for safety.
     item_count: int = 0
+    unread_count: int = 0
+    created_at: datetime
+    updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
 
 
-class CollectionItemOut(BaseModel):
-    id: uuid.UUID
-    collection_id: uuid.UUID
+class CollectionItemAdd(BaseModel):
+    """POST /collections/{id}/items — add an existing item to a collection."""
     knowledge_item_id: uuid.UUID
-    added_at: datetime
+
+    model_config = ConfigDict(extra="forbid")
+
+
+# ---------------------------------------------------------------------------
+# Read-status update
+# ---------------------------------------------------------------------------
+
+class ReadStatusUpdate(BaseModel):
+    """PATCH /knowledge/{id}/read-status"""
+    read_status: Literal["READING", "DONE"]
+
+    model_config = ConfigDict(extra="forbid")
+
+
+# ---------------------------------------------------------------------------
+# Library endpoint schemas  (GET /library — single call, no N+1)
+# ---------------------------------------------------------------------------
+
+class LibraryItemPreview(BaseModel):
+    """
+    A minimal item card for the Library shelf preview.
+    We only include fields needed to render a card — title, cover, type, status.
+    Raw text is excluded (too large) and summary is excluded (not needed for shelf).
+    """
+    id: uuid.UUID
+    title: str | None
+    cover_image_url: str | None
+    content_type: str
+    read_status: str
+    estimated_read_minutes: int | None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class LibraryCollectionEntry(BaseModel):
+    """
+    One collection row in the Library response.
+    items contains the first 10 items ordered by UNREAD first, then created_at DESC.
+    This is populated by the router using a single JOIN query (not N+1).
+    """
+    id: uuid.UUID
+    name: str
+    description: str | None
+    color: str | None
+    emoji: str | None
+    is_default: bool
+    item_count: int = 0
+    unread_count: int = 0
+    # First 10 items for shelf preview — loaded eagerly in the library query
+    items: list[LibraryItemPreview] = []
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class LibraryResponse(BaseModel):
+    """
+    Returned by GET /library.
+    A single structured payload the Library page can render in one shot.
+    total_unread is the sum across all collections for the badge count in the nav.
+    """
+    collections: list[LibraryCollectionEntry]
+    total_items: int
+    total_unread: int
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -211,3 +299,4 @@ class IngestAccepted(BaseModel):
     id: uuid.UUID
     status: str  # always "pending" at this point
     message: str = "Ingestion started. Poll GET /knowledge/{id} for status updates."
+
