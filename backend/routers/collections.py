@@ -140,6 +140,17 @@ async def update_collection(
     await db.refresh(coll)
     return CollectionOut.model_validate(coll)
 
+@router.get("/{collection_id}", response_model=CollectionOut)
+async def get_collection(
+    collection_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Fetch a single collection by ID."""
+    coll = await _get_collection_or_404(collection_id, current_user, db)
+    return CollectionOut.model_validate(coll)
+
+
 @router.delete("/{collection_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_collection(
     collection_id: uuid.UUID,

@@ -16,6 +16,11 @@ const navItems = [
         icon: BookOpen,
     },
     {
+        label: "Library",
+        href: "/dashboard/library",
+        icon: BookOpen,
+    },
+    {
         label: "Search",
         href: "/dashboard/search",
         icon: Search,
