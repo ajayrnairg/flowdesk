@@ -27,7 +27,7 @@ from sqlalchemy import func, case
 from core.database import get_db
 from routers.auth import get_current_user
 from models.user import User
-from models.knowledge import Collection, CollectionItem, KnowledgeItem
+from models.knowledge import Collection, CollectionItem, KnowledgeItem, ReadStatus
 
 from schemas.knowledge import (
     CollectionCreate, CollectionUpdate, CollectionOut,
@@ -174,6 +174,7 @@ async def delete_collection(
 @router.get("/{collection_id}/items", response_model=list[KnowledgeItemListOut])
 async def list_collection_items(
     collection_id: uuid.UUID,
+    read_status: Optional[ReadStatus] = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -191,8 +192,12 @@ async def list_collection_items(
         select(KnowledgeItem)
         .join(CollectionItem, CollectionItem.knowledge_item_id == KnowledgeItem.id)
         .where(CollectionItem.collection_id == collection_id)
-        .order_by(read_order, KnowledgeItem.created_at.desc())
     )
+
+    if read_status:
+        stmt = stmt.where(KnowledgeItem.read_status == read_status.value)
+
+    stmt = stmt.order_by(read_order, KnowledgeItem.created_at.desc())
 
     result = await db.execute(stmt)
     return result.scalars().all()
