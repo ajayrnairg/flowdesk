@@ -54,9 +54,11 @@ To ensure that backend changes don't trigger frontend builds (and vice versa), c
 2. Find the **Ignored Build Step** section.
 3. Select **Command** and enter:
    ```bash
-   git diff --quiet HEAD^ HEAD ./frontend/
+   git diff --quiet HEAD^ HEAD -- .
    ```
-   *This tells Vercel: "If there are no changes in the `frontend/` folder since the last commit, skip this build."*
+   *(Note: This assumes your **Root Directory** in Vercel is set to `frontend`. If it is NOT set, use `git diff --quiet HEAD^ HEAD -- frontend` instead.)*
+   
+   *This tells Vercel: "If there are no changes in this folder since the last commit, skip this build."*
 
 ### 2. Render (Backend)
 1. Go to your Web Service **Settings**.
