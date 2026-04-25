@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from "react"
 import { useRouter, useSearchParams, usePathname } from "next/navigation"
 import api from "@/lib/api"
 import { isLoggedIn } from "@/lib/auth"
+import { getCollections, LibraryCollection } from "@/lib/library"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -25,6 +26,8 @@ function SaveForm() {
 
     const [loading, setLoading] = useState(false)
     const [success, setSuccess] = useState(false)
+    const [collections, setCollections] = useState<LibraryCollection[]>([])
+    const [selectedCollectionId, setSelectedCollectionId] = useState<string>("")
 
     const url = params.get("url") || ""
     const titleParam = params.get("title") || ""
@@ -34,12 +37,16 @@ function SaveForm() {
     const [title, setTitle] = useState(titleParam)
     const [selectedText, setSelectedText] = useState(textParam)
 
-    // 🔐 Auth check
+    // 🔐 Auth check & Fetch Collections
     useEffect(() => {
         if (!isLoggedIn()) {
             const currentUrl = `${pathname}?${params.toString()}`
             const returnUrl = encodeURIComponent(currentUrl)
             router.replace(`/login?redirect=${returnUrl}`)
+        } else {
+            getCollections()
+                .then(setCollections)
+                .catch(() => toast.error("Failed to load collections"))
         }
     }, [router, pathname, params])
 
@@ -49,7 +56,10 @@ function SaveForm() {
         try {
             if (!selectedText.trim()) {
                 // Let backend extract YouTube/GitHub/Articles automatically
-                await api.post("/knowledge", { url })
+                await api.post("/knowledge", { 
+                    url,
+                    collection_id: selectedCollectionId || undefined
+                })
             } else {
                 // Save highlighted text directly
                 await api.post("/knowledge/bookmarklet", {
@@ -57,6 +67,7 @@ function SaveForm() {
                     page_title: title,
                     selected_text: selectedText,
                     content_type: type,
+                    collection_id: selectedCollectionId || undefined
                 })
             }
 
@@ -109,25 +120,35 @@ function SaveForm() {
 
             {/* Collection selector */}
             <div>
-                <p className="text-sm text-gray-500 mb-1">Collection</p>
-                <Select disabled>
+                <p className="text-sm text-gray-500 mb-1">Collection (Optional)</p>
+                <Select value={selectedCollectionId} onValueChange={setSelectedCollectionId}>
                     <SelectTrigger>
-                        <SelectValue placeholder="Collections coming soon" />
+                        <SelectValue placeholder="Select a collection..." />
                     </SelectTrigger>
                     <SelectContent>
-                        <SelectItem value="dummy">None</SelectItem>
+                        {collections.map((c) => (
+                            <SelectItem key={c.id} value={c.id}>
+                                <div className="flex items-center gap-2">
+                                    <div 
+                                        className="w-2 h-2 rounded-full" 
+                                        style={{ backgroundColor: c.color || "gray" }}
+                                    />
+                                    {c.name}
+                                </div>
+                            </SelectItem>
+                        ))}
                     </SelectContent>
                 </Select>
             </div>
 
             {/* Save button */}
             {!success ? (
-                <Button onClick={handleSave} disabled={loading}>
+                <Button onClick={handleSave} disabled={loading} className="w-full">
                     {loading ? "Saving..." : "Save to Knowledge Base"}
                 </Button>
             ) : (
-                <p className="text-green-600 text-sm">
-                    ✅ Saved! You can close this tab.
+                <p className="text-green-600 text-sm font-medium text-center">
+                    ✅ Saved! You can close this tab now.
                 </p>
             )}
         </CardContent>

@@ -30,14 +30,23 @@ const gradientMap = {
 export default function KnowledgeItemCard({ item, onDelete }: Props) {
     const [confirm, setConfirm] = useState(false)
 
-    const content = (
-        <div className="border rounded-xl overflow-hidden bg-white shadow-sm hover:shadow-md transition">
+    const handleClick = () => {
+        if (item.url) {
+            window.open(item.url, "_blank")
+        }
+    }
+
+    return (
+        <div 
+            onClick={handleClick}
+            className="border rounded-xl overflow-hidden bg-white shadow-sm hover:shadow-md transition cursor-pointer group"
+        >
             {/* Cover */}
             <div className="relative h-40">
                 {item.cover_image_url ? (
                     <img
                         src={item.cover_image_url}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform"
                     />
                 ) : (
                     <div
@@ -52,7 +61,7 @@ export default function KnowledgeItemCard({ item, onDelete }: Props) {
 
             {/* Body */}
             <div className="p-4 space-y-2">
-                <h3 className="font-semibold line-clamp-2">
+                <h3 className="font-semibold line-clamp-2 group-hover:text-primary transition-colors">
                     {item.title || "Untitled"}
                 </h3>
 
@@ -83,35 +92,39 @@ export default function KnowledgeItemCard({ item, onDelete }: Props) {
 
                     <span>{getRelativeTime(item.created_at)}</span>
 
-                    {!confirm ? (
-                        <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => setConfirm(true)}
-                        >
-                            Delete
-                        </Button>
-                    ) : (
-                        <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => onDelete(item.id)}
-                        >
-                            Sure?
-                        </Button>
-                    )}
+                    <div className="flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+                        {!confirm ? (
+                            <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => setConfirm(true)}
+                                className="h-7 text-[10px]"
+                            >
+                                Delete
+                            </Button>
+                        ) : (
+                            <div className="flex items-center gap-1">
+                                <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    onClick={() => onDelete(item.id)}
+                                    className="h-7 text-[10px]"
+                                >
+                                    Sure?
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => setConfirm(false)}
+                                    className="h-7 text-[10px]"
+                                >
+                                    No
+                                </Button>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
         </div>
     )
-
-    if (item.url) {
-        return (
-            <a href={item.url} target="_blank" rel="noopener noreferrer">
-                {content}
-            </a>
-        )
-    }
-
-    return content
 }

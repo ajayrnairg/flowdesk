@@ -2,15 +2,17 @@
 
 import { useEffect, useState } from "react"
 import { useParams } from "next/navigation"
-import { getCollection, getCollectionItems, LibraryCollection } from "@/lib/library"
+import { getCollection, getCollectionItems, LibraryCollection, deleteCollection } from "@/lib/library"
 import { KnowledgeItemOut } from "@/lib/knowledge"
 import LibraryItemCard from "@/components/library/LibraryItemCard"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Button } from "@/components/ui/button"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, Trash2 } from "lucide-react"
 
 type TabValue = "ALL" | "UNREAD" | "READING" | "DONE"
 
@@ -18,11 +20,13 @@ export default function CollectionPage() {
     const params = useParams()
     const collectionId = params.collection_id as string
 
+    const router = useRouter()
     const [collection, setCollection] = useState<LibraryCollection | null>(null)
     const [items, setItems] = useState<KnowledgeItemOut[]>([])
     const [loading, setLoading] = useState(true)
     const [itemsLoading, setItemsLoading] = useState(false)
     const [activeTab, setActiveTab] = useState<TabValue>("ALL")
+    const [confirmDelete, setConfirmDelete] = useState(false)
 
     useEffect(() => {
         const fetchCollection = async () => {
@@ -38,6 +42,16 @@ export default function CollectionPage() {
         }
         fetchCollection()
     }, [collectionId])
+
+    const handleDelete = async () => {
+        try {
+            await deleteCollection(collectionId)
+            toast.success("Collection deleted")
+            router.push("/library")
+        } catch (error) {
+            toast.error("Failed to delete collection")
+        }
+    }
 
     useEffect(() => {
         const fetchItems = async () => {
@@ -90,15 +104,51 @@ export default function CollectionPage() {
         <div className="p-6 space-y-8 max-w-7xl mx-auto">
             {/* Header */}
             <div className="space-y-6">
-                <Link
-                    href="/library"
-                    className="group flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
-                >
-                    <div className="p-1 rounded bg-muted group-hover:bg-primary/10 transition-colors">
-                        <ArrowLeft className="w-4 h-4" />
-                    </div>
-                    Back to Library
-                </Link>
+                <div className="flex justify-between items-center">
+                    <Link
+                        href="/library"
+                        className="group flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
+                    >
+                        <div className="p-1 rounded bg-muted group-hover:bg-primary/10 transition-colors">
+                            <ArrowLeft className="w-4 h-4" />
+                        </div>
+                        Back to Library
+                    </Link>
+
+                    {collection && !collection.is_default && (
+                        <div className="flex items-center gap-2">
+                            {!confirmDelete ? (
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setConfirmDelete(true)}
+                                    className="text-muted-foreground hover:text-destructive gap-2"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                    Delete Collection
+                                </Button>
+                            ) : (
+                                <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-1">
+                                    <span className="text-xs font-medium text-destructive">Are you sure?</span>
+                                    <Button
+                                        variant="destructive"
+                                        size="sm"
+                                        onClick={handleDelete}
+                                    >
+                                        Yes, Delete
+                                    </Button>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setConfirmDelete(false)}
+                                    >
+                                        Cancel
+                                    </Button>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
 
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div className="flex items-center gap-4">
