@@ -27,13 +27,15 @@ async def fetch_youtube_content(url: str) -> dict:
         pass # Non-fatal if oEmbed fails, proceed to transcript
 
     # 2. Fetch transcript (synchronous library, so we offload to a thread)
+    def _fetch_transcript():
+        api = YouTubeTranscriptApi()
+        return api.fetch(video_id)
+
     try:
-        transcript_list = await asyncio.to_thread(
-            YouTubeTranscriptApi.get_transcript, video_id
-        )
+        transcript = await asyncio.to_thread(_fetch_transcript)
         
         # Join all text blocks into a single string
-        raw_text = " ".join([t.get("text", "") for t in transcript_list])
+        raw_text = " ".join([snippet.text for snippet in transcript.snippets])
         
         return {
             "title": title,

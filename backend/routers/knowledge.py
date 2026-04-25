@@ -166,7 +166,11 @@ async def reprocess_failed_pending(
     """Ad-hoc endpoint to retry all failed or pending items."""
     stmt = select(KnowledgeItem).where(
         KnowledgeItem.user_id == current_user.id,
-        KnowledgeItem.status.in_([ItemStatus.FAILED.value, ItemStatus.PENDING.value])
+        KnowledgeItem.status.in_([
+            ItemStatus.FAILED.value, 
+            ItemStatus.PENDING.value,
+            ItemStatus.PROCESSING.value
+        ])
     )
     result = await db.execute(stmt)
     items = result.scalars().all()
