@@ -1,5 +1,6 @@
 import uuid
 from typing import List, Optional
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -8,8 +9,8 @@ from sqlalchemy import or_
 from core.database import get_db, AsyncSessionLocal
 from routers.auth import get_current_user
 from models.user import User
-from models.knowledge import KnowledgeItem, CollectionItem, ItemStatus
-from schemas.knowledge import KnowledgeItemCreate, KnowledgeItemOut, IngestAccepted
+from models.knowledge import KnowledgeItem, CollectionItem, ItemStatus, ReadStatus
+from schemas.knowledge import KnowledgeItemCreate, KnowledgeItemOut, IngestAccepted, KnowledgeItemUpdate
 from schemas.knowledge_extra import BookmarkletPayload # Imported from the schema above
 
 from services.content_detector import detect_content_type
@@ -223,8 +224,35 @@ async def get_knowledge_item(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Retrieves full details of a specific knowledge item."""
-    return await _get_item_or_404(item_id, current_user, db)
+    """Retrieves full details of a specific knowledge item and tracks last_opened_at."""
+    item = await _get_item_or_404(item_id, current_user, db)
+    item.last_opened_at = datetime.now(timezone.utc)
+    await db.commit()
+    await db.refresh(item)
+    return item
+
+@router.patch("/{item_id}", response_model=KnowledgeItemOut)
+async def update_knowledge_item(
+    item_id: uuid.UUID,
+    payload: KnowledgeItemUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """PATCH user-editable fields: title, tags, read_status."""
+    item = await _get_item_or_404(item_id, current_user, db)
+    update_data = payload.model_dump(exclude_unset=True)
+
+    # Auto-set read_at on first transition to DONE
+    if update_data.get("read_status") == ReadStatus.DONE.value:
+        if item.read_at is None:
+            update_data["read_at"] = datetime.now(timezone.utc)
+
+    for field, value in update_data.items():
+        setattr(item, field, value)
+
+    await db.commit()
+    await db.refresh(item)
+    return item
 
 @router.delete("/{item_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_knowledge_item(

@@ -45,6 +45,14 @@ async def fetch_youtube_content(url: str) -> dict:
         
     except Exception as e:
         error_str = str(e).lower()
+        if "blocking requests from your ip" in error_str or "ipbelonging to a cloud provider" in error_str:
+            return {
+                "title": title,
+                "raw_text": "",
+                "cover_image_url": cover_image_url,
+                "error": "youtube_ip_blocked"
+            }
+        
         if "disabled" in error_str or "found" in error_str or "transcripts" in error_str:
             # Graceful degradation if no subtitles exist
             return {

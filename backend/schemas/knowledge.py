@@ -21,11 +21,11 @@ Schema map:
 
 import uuid
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, field_validator, model_validator
 
-from models.knowledge import ContentType, ItemStatus
+from models.knowledge import ContentType, ItemStatus, ReadStatus
 
 
 # ---------------------------------------------------------------------------
@@ -123,6 +123,9 @@ class KnowledgeItemListOut(BaseModel):
     tags: list[str] | None
     is_processed: bool
     status: str
+    read_status: str
+    read_at: datetime | None
+    last_opened_at: datetime | None
     created_at: datetime
     updated_at: datetime
 
@@ -137,6 +140,29 @@ class KnowledgeItemOut(KnowledgeItemListOut):
     raw_text: str | None
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# ---------------------------------------------------------------------------
+# KnowledgeItem — user-facing PATCH
+# ---------------------------------------------------------------------------
+
+class KnowledgeItemUpdate(BaseModel):
+    """
+    PATCH /knowledge/{id} — user-editable fields only.
+    read_status accepts only READING and DONE (not UNREAD — use a dedicated
+    mark-unread endpoint if that feature is added later).
+    """
+    title: Annotated[str, Field(min_length=1, max_length=500)] | None = None
+    tags: list[str] | None = None
+    read_status: Literal["READING", "DONE"] | None = None
+
+    @model_validator(mode="after")
+    def at_least_one_field(self) -> "KnowledgeItemUpdate":
+        if self.title is None and self.tags is None and self.read_status is None:
+            raise ValueError("PATCH body must contain at least one field")
+        return self
+
+    model_config = ConfigDict(extra="forbid")
 
 
 # ---------------------------------------------------------------------------

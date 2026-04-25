@@ -1,7 +1,7 @@
 import enum
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import String, Boolean, DateTime, ForeignKey, Text, Integer, Index, UniqueConstraint
+from sqlalchemy import String, Boolean, DateTime, ForeignKey, Text, Integer, Index, UniqueConstraint, Enum as SAEnum
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import UUID as PG_UUID, ARRAY
 from core.database import Base
@@ -20,6 +20,11 @@ class ItemStatus(enum.Enum):
     DONE = "done"
     FAILED = "failed"
 
+class ReadStatus(str, enum.Enum):
+    UNREAD  = "UNREAD"
+    READING = "READING"
+    DONE    = "DONE"
+
 class KnowledgeItem(Base):
     __tablename__ = "knowledge_items"
 
@@ -36,6 +41,16 @@ class KnowledgeItem(Base):
     status: Mapped[str] = mapped_column(String, default=ItemStatus.PENDING.value)
     is_processed: Mapped[bool] = mapped_column(Boolean, default=False)
 
+    # ── Reading progress ──────────────────────────────────────────────────
+    read_status: Mapped[str] = mapped_column(
+        SAEnum(ReadStatus, name="read_status", native_enum=False, create_type=False),
+        nullable=False,
+        default=ReadStatus.UNREAD.value,
+        server_default=ReadStatus.UNREAD.value,
+    )
+    read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_opened_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
@@ -51,6 +66,7 @@ class KnowledgeItem(Base):
     __table_args__ = (
         Index("ix_knowledge_items_user_status", "user_id", "status"),
         Index("ix_knowledge_items_user_ctype", "user_id", "content_type"),
+        Index("ix_knowledge_items_user_read_status", "user_id", "read_status"),
     )
 
 class Collection(Base):

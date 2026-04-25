@@ -2,12 +2,25 @@ import asyncio
 import logging
 from google import genai
 from core.config import settings
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_message
 
 logger = logging.getLogger(__name__)
+
+# Retry strategy for Gemini API rate limits (429 errors)
+gemini_retry = retry(
+    stop=stop_after_attempt(5),
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+    retry=retry_if_exception_message(match="429"),
+    reraise=True,
+    before_sleep=lambda retry_state: logger.warning(
+        f"Rate limit hit (429). Retrying attempt {retry_state.attempt_number}..."
+    )
+)
 
 # Initialize the SDK client globally
 client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
+@gemini_retry
 async def embed_texts(texts: list[str]) -> list[list[float]]:
     """
     Generates embeddings for a batch of documents. 
@@ -47,6 +60,7 @@ async def embed_texts(texts: list[str]) -> list[list[float]]:
         logger.error(f"Failed to embed text batch: {e}")
         raise
 
+@gemini_retry
 async def embed_query(query: str) -> list[float]:
     """
     Generates an embedding for a user search query.
