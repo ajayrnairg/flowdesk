@@ -1,12 +1,12 @@
 import asyncio
 import logging
-import google.generativeai as genai
+from google import genai
 from core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Configure the SDK globally
-genai.configure(api_key=settings.GEMINI_API_KEY)
+# Initialize the SDK client globally
+client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
 async def embed_texts(texts: list[str]) -> list[list[float]]:
     """
@@ -26,14 +26,17 @@ async def embed_texts(texts: list[str]) -> list[list[float]]:
             # task_type="RETRIEVAL_DOCUMENT" is critical here. It tells the model
             # that this text represents the "corpus" to be searched, optimizing
             # its vector placement to be matched against queries later.
-            result = await genai.embed_content_async(
+            result = await client.aio.models.embed_content(
                 model=settings.EMBEDDING_MODEL,
-                content=batch,
-                task_type="RETRIEVAL_DOCUMENT",
-                output_dimensionality=768
+                contents=batch,
+                config={
+                    "task_type": "RETRIEVAL_DOCUMENT",
+                    "output_dimensionality": 768
+                }
             )
             
-            all_embeddings.extend(result['embedding'])
+            for emb in result.embeddings:
+                all_embeddings.append(emb.values)
             
             # Rate limit mitigation for free tier: sleep briefly between batches
             if i + batch_size < len(texts):
@@ -52,13 +55,15 @@ async def embed_query(query: str) -> list[float]:
         # task_type="RETRIEVAL_QUERY" is critical here. It tells the model to optimize
         # this vector to seek out "RETRIEVAL_DOCUMENT" vectors. Mixing these up
         # severely degrades cosine similarity quality.
-        result = await genai.embed_content_async(
+        result = await client.aio.models.embed_content(
             model=settings.EMBEDDING_MODEL,
-            content=query,
-            task_type="RETRIEVAL_QUERY",
-            output_dimensionality=768
+            contents=query,
+            config={
+                "task_type": "RETRIEVAL_QUERY",
+                "output_dimensionality": 768
+            }
         )
-        return result['embedding']
+        return result.embeddings[0].values
     except Exception as e:
         logger.error(f"Failed to embed query: {e}")
         raise

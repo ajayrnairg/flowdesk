@@ -1,7 +1,11 @@
 import logging
-import google.generativeai as genai
+from google import genai
+from core.config import settings
 
 logger = logging.getLogger(__name__)
+
+# Initialize client globally
+client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
 async def synthesise_answer(query: str, chunks: list[dict]) -> str:
     """
@@ -39,9 +43,10 @@ SOURCES:
 ANSWER:"""
 
     try:
-        model = genai.GenerativeModel("gemini-1.5-flash")
-        # Generate the response asynchronously using the provided context
-        response = await model.generate_content_async(prompt)
+        response = await client.aio.models.generate_content(
+            model="gemini-1.5-flash",
+            contents=prompt
+        )
         return response.text.strip()
     except Exception as e:
         logger.error(f"Synthesis failed: {e}")

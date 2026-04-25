@@ -1,9 +1,9 @@
 import asyncio
-import google.generativeai as genai
+from google import genai
 from core.config import settings
 
-# Configure SDK globally
-genai.configure(api_key=settings.GEMINI_API_KEY)
+# Initialize client globally
+client = genai.Client(api_key=settings.GEMINI_API_KEY)
 
 async def generate_summary(title: str, raw_text: str, content_type: str) -> str:
     """
@@ -13,8 +13,6 @@ async def generate_summary(title: str, raw_text: str, content_type: str) -> str:
     if not raw_text:
         return ""
         
-    # Free-tier friendly model
-    model = genai.GenerativeModel("gemini-2.5-flash")
     
     # Truncate to first 3000 chars to save tokens and ensure fast latency
     truncated_text = raw_text[:3000]
@@ -29,8 +27,10 @@ async def generate_summary(title: str, raw_text: str, content_type: str) -> str:
     )
     
     try:
-        # Generate content is sync; run in thread pool
-        response = await asyncio.to_thread(model.generate_content, prompt)
+        response = await client.aio.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt
+        )
         return response.text.strip()
     except Exception as e:
         # Silent failure on rate limits or API errors
