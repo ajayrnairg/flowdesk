@@ -39,7 +39,7 @@ export default function LoginPage() {
         try {
             const res = await api.post("/auth/login", data)
             saveToken(res.data.access_token)
-            router.push("/dashboard/planner")
+            router.push("/planner")
         } catch (err: unknown) {
             const message = (err as Record<string, any>).response?.data?.message || "Login failed"
             setError(message)

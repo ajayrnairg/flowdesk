@@ -8,7 +8,8 @@ import { toast } from "sonner"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
-import { BookOpen, Filter } from "lucide-react"
+import { BookOpen, Filter, ChevronRight } from "lucide-react"
+import Link from "next/link"
 
 export default function LibraryPage() {
     const [collections, setCollections] = useState<LibraryCollection[]>([])
@@ -89,14 +90,20 @@ export default function LibraryPage() {
                         : c.items
 
                     return (
-                        <div key={c.id} className="space-y-2">
-                            <div
-                                className="flex justify-between items-center border-l-4 pl-3"
+                        <div key={c.id} className="space-y-4">
+                            <Link
+                                href={`/library/${c.id}`}
+                                className="flex justify-between items-center border-l-4 pl-3 hover:bg-muted/50 py-1 transition-colors group"
                                 style={{ borderColor: c.color || "transparent" }}
                             >
-                                <h2>{c.name}</h2>
-                                <Badge>{c.unread_count} unread</Badge>
-                            </div>
+                                <div className="flex items-center gap-2">
+                                    <h2 className="font-semibold text-lg">{c.name}</h2>
+                                    <ChevronRight className="w-4 h-4 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground" />
+                                </div>
+                                <Badge variant="secondary" className="font-normal text-xs">
+                                    {c.unread_count} unread
+                                </Badge>
+                            </Link>
 
                             {items.length === 0 ? (
                                 <p className="text-sm text-gray-500">

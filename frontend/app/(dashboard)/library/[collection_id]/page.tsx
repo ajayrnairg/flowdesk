@@ -79,7 +79,7 @@ export default function CollectionPage() {
         return (
             <div className="p-6 text-center">
                 <h1 className="text-xl font-semibold">Collection not found</h1>
-                <Link href="/dashboard/library" className="text-blue-600 hover:underline">
+                <Link href="/library" className="text-blue-600 hover:underline">
                     Back to Library
                 </Link>
             </div>
@@ -91,7 +91,7 @@ export default function CollectionPage() {
             {/* Header */}
             <div className="space-y-6">
                 <Link
-                    href="/dashboard/library"
+                    href="/library"
                     className="group flex items-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors"
                 >
                     <div className="p-1 rounded bg-muted group-hover:bg-primary/10 transition-colors">

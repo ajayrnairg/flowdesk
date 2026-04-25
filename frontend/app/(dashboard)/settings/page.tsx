@@ -7,7 +7,7 @@ export default function SettingsPage() {
         <div className="container mx-auto py-10 px-4 max-w-2xl">
             <div className="mb-8">
                 <Link 
-                    href="/dashboard/planner" 
+                    href="/planner" 
                     className="flex items-center text-sm text-slate-500 hover:text-slate-800 transition-colors"
                 >
                     <ArrowLeft className="mr-2 h-4 w-4" />

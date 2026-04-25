@@ -7,22 +7,22 @@ import { BookOpen, Search, CalendarDays, Settings } from "lucide-react"
 const navItems = [
     {
         label: "Planner",
-        href: "/dashboard/planner",
+        href: "/planner",
         icon: CalendarDays,
     },
     {
         label: "Knowledge",
-        href: "/dashboard/knowledge",
+        href: "/knowledge",
         icon: BookOpen,
     },
     {
         label: "Library",
-        href: "/dashboard/library",
+        href: "/library",
         icon: BookOpen,
     },
     {
         label: "Search",
-        href: "/dashboard/search",
+        href: "/search",
         icon: Search,
         shortcut: (
             <span className="ml-1.5 hidden sm:inline-flex items-center gap-0.5 text-[10px] font-medium bg-muted border border-border rounded px-1 py-0.5 text-muted-foreground leading-none">
@@ -34,7 +34,7 @@ const navItems = [
     },
     {
         label: "Settings",
-        href: "/dashboard/settings",
+        href: "/settings",
         icon: Settings,
     },
 ]

@@ -34,7 +34,7 @@ export default function DashboardLayout({
         const handler = (e: KeyboardEvent) => {
             if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
                 e.preventDefault()
-                router.push("/dashboard/search")
+                router.push("/search")
             }
         }
         window.addEventListener("keydown", handler)

@@ -9,7 +9,7 @@ export default function HomePage() {
 
   useEffect(() => {
     if (isLoggedIn()) {
-      router.replace("/dashboard/planner")
+      router.replace("/planner")
     } else {
       router.replace("/login")
     }
