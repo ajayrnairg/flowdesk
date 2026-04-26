@@ -125,7 +125,7 @@ async def test_delete_other_user_subscription(authenticated_client, test_user: U
 
 @pytest.mark.asyncio
 async def test_check_and_send_wrong_token(async_client: AsyncClient):
-    res = await async_client.get("/notifications/check-and-send", params={"token": "this-is-wrong"})
+    res = await async_client.get("/notifications/check-and-send", headers={"X-Notification-Token": "this-is-wrong"})
     assert res.status_code == 403
 
 @pytest.mark.asyncio
@@ -133,7 +133,7 @@ async def test_check_and_send_outside_window(async_client: AsyncClient):
     outside_utc = datetime(2026, 4, 21, 10, 0, 0, tzinfo=timezone.utc)
     with patch("routers.notifications.datetime") as mock_dt:
         mock_dt.now.return_value = outside_utc
-        res = await async_client.get("/notifications/check-and-send", params={"token": VALID_TOKEN})
+        res = await async_client.get("/notifications/check-and-send", headers={"X-Notification-Token": VALID_TOKEN})
     assert res.status_code == 200
     assert res.json() == {"status": "outside_window"}
 
@@ -145,7 +145,7 @@ async def test_force_send_digest(authenticated_client, test_user: User, mocker):
     mocker.patch("services.email_service.resend.Emails.send", return_value={"id": "mock-email-id"})
     mocker.patch("services.push_service.send_push_notification", new_callable=AsyncMock, return_value=True)
 
-    res = await client.post("/notifications/send-digest", params={"token": VALID_TOKEN})
+    res = await client.post("/notifications/send-digest", headers={"X-Notification-Token": VALID_TOKEN})
     assert res.status_code == 200
     body = res.json()
     assert body["status"] == "sent"
@@ -163,13 +163,16 @@ async def test_inside_window_no_prior_digest_sends(async_client: AsyncClient, mo
 
     with patch("routers.notifications.datetime") as mock_dt:
         mock_dt.now.side_effect = datetime_side_effect(INSIDE_UTC, INSIDE_IST)
-        res = await async_client.get("/notifications/check-and-send", params={"token": VALID_TOKEN})
+        res = await async_client.get("/notifications/check-and-send", headers={"X-Notification-Token": VALID_TOKEN})
 
     assert res.status_code == 200
     assert res.json()["status"] == "sent"
     assert res.json()["count"] == 3
     mock_orchestrator.assert_awaited_once()
-    app.dependency_overrides.pop(get_db, None)
+    
+    # Restore the global test DB override
+    from tests.conftest import override_get_db
+    app.dependency_overrides[get_db] = override_get_db
 
 @pytest.mark.asyncio
 async def test_inside_window_already_sent_skips(async_client: AsyncClient, mocker):
@@ -179,12 +182,14 @@ async def test_inside_window_already_sent_skips(async_client: AsyncClient, mocke
 
     with patch("routers.notifications.datetime") as mock_dt:
         mock_dt.now.side_effect = datetime_side_effect(INSIDE_UTC, INSIDE_IST)
-        res = await async_client.get("/notifications/check-and-send", params={"token": VALID_TOKEN})
+        res = await async_client.get("/notifications/check-and-send", headers={"X-Notification-Token": VALID_TOKEN})
 
     assert res.status_code == 200
     assert res.json() == {"status": "already_sent"}
     mock_orchestrator.assert_not_awaited()
-    app.dependency_overrides.pop(get_db, None)
+    
+    from tests.conftest import override_get_db
+    app.dependency_overrides[get_db] = override_get_db
 
 @pytest.mark.asyncio
 async def test_outside_window_returns_outside_window(async_client: AsyncClient, mocker):
@@ -194,15 +199,33 @@ async def test_outside_window_returns_outside_window(async_client: AsyncClient, 
 
     with patch("routers.notifications.datetime") as mock_dt:
         mock_dt.now.return_value = OUTSIDE_UTC
-        res = await async_client.get("/notifications/check-and-send", params={"token": VALID_TOKEN})
+        res = await async_client.get("/notifications/check-and-send", headers={"X-Notification-Token": VALID_TOKEN})
 
     assert res.status_code == 200
     assert res.json() == {"status": "outside_window"}
     mock_db.execute.assert_not_awaited()
     mock_orchestrator.assert_not_awaited()
-    app.dependency_overrides.pop(get_db, None)
+    
+    from tests.conftest import override_get_db
+    app.dependency_overrides[get_db] = override_get_db
 
 @pytest.mark.asyncio
 async def test_invalid_token_is_rejected(async_client: AsyncClient):
-    res = await async_client.get("/notifications/check-and-send", params={"token": "wrong-token"})
+    res = await async_client.get("/notifications/check-and-send", headers={"X-Notification-Token": "wrong-token"})
     assert res.status_code == 403
+
+@pytest.mark.asyncio
+async def test_trigger_my_digest_endpoint(authenticated_client, test_user: User, mocker):
+    client = await authenticated_client(test_user)
+    
+    # 1. Test success (digest sent)
+    mocker.patch("routers.notifications.send_digest_to_user", new_callable=AsyncMock, return_value=True)
+    res = await client.post("/notifications/send-my-digest")
+    assert res.status_code == 200
+    assert res.json()["status"] == "sent"
+
+    # 2. Test skip (no content)
+    mocker.patch("routers.notifications.send_digest_to_user", new_callable=AsyncMock, return_value=False)
+    res = await client.post("/notifications/send-my-digest")
+    assert res.status_code == 200
+    assert res.json()["status"] == "skipped"

@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
-import { RefreshCw } from "lucide-react"
+import { RefreshCw, Mail } from "lucide-react"
 import { useApi } from "@/hooks/useApi"
 
 const filters = [
@@ -28,6 +28,7 @@ export default function KnowledgePageClient() {
     const [items, setItems] = useState<KnowledgeItemOut[]>([])
     const [loading, setLoading] = useState(true)
     const [reprocessing, setReprocessing] = useState(false)
+    const [sendingDigest, setSendingDigest] = useState(false)
     const [query, setQuery] = useState("")
     const [active, setActive] = useState<string | undefined>(undefined)
 
@@ -142,6 +143,23 @@ export default function KnowledgePageClient() {
         }
     }
 
+    const handleSendDigest = async () => {
+        setSendingDigest(true)
+        try {
+            const api = await getAuthenticatedApi()
+            const res = await api.post("/notifications/send-my-digest")
+            if (res.data.status === "sent") {
+                toast.success(res.data.message)
+            } else {
+                toast.info(res.data.message)
+            }
+        } catch {
+            toast.error("Failed to send digest")
+        } finally {
+            setSendingDigest(false)
+        }
+    }
+
     return (
         <div 
             className="p-6 space-y-6 relative min-h-screen"
@@ -160,6 +178,15 @@ export default function KnowledgePageClient() {
             <div className="flex justify-between items-center">
                 <h1 className="text-2xl font-semibold">Knowledge Base</h1>
                 <div className="flex gap-2">
+                    <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={handleSendDigest}
+                        disabled={sendingDigest}
+                    >
+                        <Mail className={`mr-2 h-4 w-4 ${sendingDigest ? "animate-bounce" : ""}`} />
+                        {sendingDigest ? "Sending..." : "Send Digest Now"}
+                    </Button>
                     <Button 
                         variant="outline" 
                         size="sm" 

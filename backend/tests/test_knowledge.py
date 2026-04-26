@@ -222,3 +222,32 @@ async def test_failed_extraction(authenticated_client, test_user: User, mocker):
     data = res_get.json()
     
     assert data["status"] == "failed"
+
+@pytest.mark.asyncio
+async def test_is_priority_ingestion(authenticated_client, test_user: User, mocker):
+    client = await authenticated_client(test_user)
+    mocker.patch("services.ingestion_orchestrator.fetch_with_jina", return_value={"title": "P", "raw_text": "P"})
+    mocker.patch("services.ingestion_orchestrator.generate_summary", return_value="P")
+
+    # 1. Test via main URL ingestion
+    res1 = await client.post("/knowledge", json={"url": "https://example.com/p", "is_priority": True})
+    assert res1.status_code == 202
+    id1 = res1.json()["id"]
+
+    # 2. Test via Bookmarklet
+    res2 = await client.post("/knowledge/bookmarklet", json={
+        "url": "https://example.com/b",
+        "page_title": "B",
+        "selected_text": "B",
+        "content_type": "article",
+        "is_priority": True
+    })
+    assert res2.status_code == 202
+    id2 = res2.json()["id"]
+
+    await wait_for_bg()
+
+    # Verify both
+    for item_id in [id1, id2]:
+        res = await client.get(f"/knowledge/{item_id}")
+        assert res.json()["is_priority"] is True

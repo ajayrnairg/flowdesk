@@ -122,3 +122,15 @@ async def test_ordering(authenticated_client, test_user: User):
     assert len(tasks) == 2
     assert tasks[0]["id"] == res2.json()["id"]
     assert tasks[1]["id"] == res1.json()["id"]
+    
+@pytest.mark.asyncio
+async def test_create_recurring_task(authenticated_client, test_user: User):
+    client = await authenticated_client(test_user)
+    payload = {
+        "title": "Daily Workout",
+        "scope": "DAILY",
+        "is_recurring": True
+    }
+    res = await client.post("/tasks", json=payload)
+    assert res.status_code == 201
+    assert res.json()["is_recurring"] is True

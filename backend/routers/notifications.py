@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy.exc import IntegrityError
@@ -12,22 +12,35 @@ from core.clerk_auth import get_current_user
 from models.user import User
 from models.notification import NotificationLog, PushSubscription
 from schemas.notification import PushSubscriptionCreate
-from services.digest_orchestrator import send_morning_digest_to_all_users
+from services.digest_orchestrator import send_morning_digest_to_all_users, send_digest_to_user
 
 router = APIRouter(prefix="/notifications", tags=["notifications"])
 
-def verify_token(token: str):
-    """Helper dependency to verify server-to-server webhook tokens."""
-    if token != settings.NOTIFICATION_SECRET:
+@router.post("/send-my-digest")
+async def trigger_my_digest(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Triggers an ad-hoc morning digest for the current user."""
+    sent = await send_digest_to_user(current_user, db)
+    if not sent:
+        return {"status": "skipped", "message": "No content found for your digest today."}
+    return {"status": "sent", "message": "Digest sent to your email and devices."}
+
+def verify_token(x_token: str):
+    """Helper dependency to verify server-to-server webhook tokens from header."""
+    if x_token != settings.NOTIFICATION_SECRET:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid token")
 
 @router.api_route("/check-and-send", methods=["GET", "HEAD"])
-async def check_and_send_digest(token: str, db: AsyncSession = Depends(get_db)):
+async def check_and_send_digest(
+    x_notification_token: str = Header(..., alias="X-Notification-Token"),
+    db: AsyncSession = Depends(get_db)
+):
     """
-    Time-gated UptimeRobot webhook. Checks if we are in the correct time window
-    and if a digest was already sent today before triggering.
+    Time-gated UptimeRobot webhook. Now uses a secure header for authentication.
     """
-    verify_token(token)
+    verify_token(x_notification_token)
     
     now_utc = datetime.now(timezone.utc)
     
@@ -61,9 +74,12 @@ async def check_and_send_digest(token: str, db: AsyncSession = Depends(get_db)):
     return {"status": "sent", "count": notified_count}
 
 @router.post("/send-digest")
-async def force_send_digest(token: str, db: AsyncSession = Depends(get_db)):
+async def force_send_digest(
+    x_notification_token: str = Header(..., alias="X-Notification-Token"),
+    db: AsyncSession = Depends(get_db)
+):
     """Unconditional trigger for GitHub actions / manual overrides."""
-    verify_token(token)
+    verify_token(x_notification_token)
     try:
         notified_count = await send_morning_digest_to_all_users(db)
         return {"status": "sent", "count": notified_count}

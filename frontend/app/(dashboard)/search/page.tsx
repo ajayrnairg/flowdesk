@@ -47,8 +47,9 @@ export default function SearchPage() {
 
         try {
             const api = await getAuthenticatedApi()
-            const res = await api.get<SearchResponse>("/search", {
-                params: { q },
+            const res = await api.post<SearchResponse>("/search", { 
+                query: q
+            }, {
                 signal: controller.signal
             })
             setResult(res.data)

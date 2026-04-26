@@ -42,7 +42,10 @@ async def semantic_search(query: str, user_id: UUID, db: AsyncSession, top_k: in
     # Extract unique parent item IDs from the search results
     parent_ids = {row.KnowledgeChunk.knowledge_item_id for row in rows}
     
-    item_stmt = select(KnowledgeItem).where(KnowledgeItem.id.in_(parent_ids))
+    item_stmt = select(KnowledgeItem).where(
+        KnowledgeItem.id.in_(parent_ids),
+        KnowledgeItem.user_id == user_id
+    )
     item_result = await db.execute(item_stmt)
     
     # Map item_id -> KnowledgeItem object for O(1) lookups
