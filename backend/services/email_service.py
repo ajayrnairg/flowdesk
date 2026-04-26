@@ -16,7 +16,7 @@ def _build_task_html(tasks: list) -> str:
     html += "</ul>"
     return html
 
-async def send_digest_email(user: User, digest_data: dict) -> bool:
+async def send_digest_email(user: User, digest_data: dict, suggested_reading: list[dict]) -> bool:
     """
     Constructs and sends a clean HTML morning digest via Resend.
     Catches all exceptions to prevent crashing the orchestrator loop.
@@ -42,6 +42,40 @@ async def send_digest_email(user: User, digest_data: dict) -> bool:
     if digest_data["monthly_tasks"]:
         html_content += "<h3>🎯 This Month's Milestones</h3>"
         html_content += _build_task_html(digest_data["monthly_tasks"])
+
+    # Build Suggested Reading Content
+    if suggested_reading:
+        html_content += "<h3>📚 Suggested Reading for Today</h3>"
+        
+        emoji_map = {
+            "article": "📰",
+            "youtube": "🎥",
+            "github": "💻",
+            "twitter": "💬",
+            "linkedin": "💬",
+            "pdf": "📄"
+        }
+        
+        for item in suggested_reading:
+            icon = emoji_map.get(item["content_type"], "📰")
+            color = item["collection_color"] or "#64748b" # default slate
+            title = item["title"] or "Untitled"
+            title_html = f'<a href="{item["url"]}" style="color: #0f172a; text-decoration: none;">{title}</a>' if item["url"] else title
+            read_time_html = f'<small style="color: #64748b;">(~{item["estimated_read_minutes"]} min read)</small>' if item["estimated_read_minutes"] else ''
+            summary_html = f'<p style="margin: 6px 0 0 0; font-size: 14px; color: #475569;">{item["summary"]}</p>' if item["summary"] else ''
+            
+            html_content += f"""
+            <div style="border-left: 3px solid {color}; padding: 8px 12px; margin-bottom: 12px; background: #f8fafc; border-radius: 0 4px 4px 0;">
+                <div style="margin-bottom: 2px;">
+                    <span style="margin-right: 4px;">{icon}</span>
+                    <strong style="font-size: 15px;">{title_html}</strong> {read_time_html}
+                </div>
+                <div style="font-size: 11px; font-weight: bold; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.5px;">
+                    From: {item['collection_name']}
+                </div>
+                {summary_html}
+            </div>
+            """
 
     html_content += "<hr><p><small>Reply to this email has no effect. Manage your tasks at FlowDesk.</small></p>"
 

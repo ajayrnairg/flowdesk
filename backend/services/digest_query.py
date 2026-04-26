@@ -2,10 +2,11 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import or_, and_
+from sqlalchemy import or_, and_, func
 import uuid
 
 from models.task import Task, TaskScope
+from models.knowledge import KnowledgeItem, Collection, CollectionItem, ItemStatus, ReadStatus
 
 async def build_digest_for_user(user_id: uuid.UUID, db: AsyncSession) -> dict:
     """
@@ -64,3 +65,68 @@ async def build_digest_for_user(user_id: uuid.UUID, db: AsyncSession) -> dict:
                 digest["monthly_tasks"].append(task)
 
     return digest
+
+async def get_suggested_reading(user_id: uuid.UUID, db: AsyncSession) -> list[dict]:
+    """
+    Fetches up to 5 suggested reading items, picking at most ONE oldest unread 
+    item per collection.
+    """
+    # Use a Window Function (ROW_NUMBER) to partition the items by their collection ID,
+    # and order them by the oldest creation date first. This allows us to pluck exactly
+    # the #1 oldest unread item from each collection without making N+1 queries.
+    subq = (
+        select(
+            KnowledgeItem.id,
+            KnowledgeItem.title,
+            KnowledgeItem.summary,
+            KnowledgeItem.url,
+            KnowledgeItem.content_type,
+            KnowledgeItem.estimated_read_minutes,
+            CollectionItem.collection_id,
+            func.row_number().over(
+                partition_by=CollectionItem.collection_id,
+                order_by=KnowledgeItem.created_at.asc()
+            ).label("rn")
+        )
+        .join(CollectionItem, CollectionItem.knowledge_item_id == KnowledgeItem.id)
+        .where(
+            KnowledgeItem.user_id == user_id,
+            KnowledgeItem.status == ItemStatus.DONE.value,
+            KnowledgeItem.read_status == ReadStatus.UNREAD.value
+        )
+        .subquery()
+    )
+
+    # Now select from the subquery where row_number = 1, joining the collection
+    # to get its UI metadata (name and color).
+    stmt = (
+        select(
+            Collection.name.label("collection_name"),
+            Collection.color.label("collection_color"),
+            subq.c.title,
+            subq.c.summary,
+            subq.c.url,
+            subq.c.content_type,
+            subq.c.estimated_read_minutes
+        )
+        .join(Collection, Collection.id == subq.c.collection_id)
+        .where(subq.c.rn == 1)
+        .limit(5)
+    )
+
+    result = await db.execute(stmt)
+    rows = result.all()
+
+    suggestions = []
+    for row in rows:
+        suggestions.append({
+            "collection_name": row.collection_name,
+            "collection_color": row.collection_color,
+            "title": row.title,
+            "summary": row.summary,
+            "url": row.url,
+            "content_type": row.content_type,
+            "estimated_read_minutes": row.estimated_read_minutes
+        })
+
+    return suggestions

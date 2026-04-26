@@ -1,10 +1,13 @@
+import logging
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from models.user import User
 from models.notification import NotificationLog, PushSubscription
-from services.digest_query import build_digest_for_user
+from services.digest_query import build_digest_for_user, get_suggested_reading
 from services.email_service import send_digest_email
 from services.push_service import send_push_notification
+
+logger = logging.getLogger(__name__)
 
 async def send_morning_digest_to_all_users(db: AsyncSession) -> int:
     """
@@ -21,14 +24,21 @@ async def send_morning_digest_to_all_users(db: AsyncSession) -> int:
         # 1. Build Digest
         digest_data = await build_digest_for_user(user.id, db)
         
-        # 2. Skip if totally empty
-        if not any(digest_data.values()):
+        # Fetch Suggested Reading — encapsulated in try/except so it never breaks the digest
+        try:
+            suggested_reading = await get_suggested_reading(user.id, db)
+        except Exception as e:
+            logger.error(f"Failed to get suggested reading for {user.id}: {e}")
+            suggested_reading = []
+        
+        # 2. Skip if totally empty (no tasks AND no suggested reading)
+        if not any(digest_data.values()) and not suggested_reading:
             continue
             
         users_notified += 1
         
         # 3. Send Email
-        email_success = await send_digest_email(user, digest_data)
+        email_success = await send_digest_email(user, digest_data, suggested_reading)
         
         # Log Email Attempt
         db.add(NotificationLog(
@@ -41,8 +51,12 @@ async def send_morning_digest_to_all_users(db: AsyncSession) -> int:
         # 4. Handle Push Notifications
         total_tasks = sum(len(tasks) for tasks in digest_data.values())
         push_title = "FlowDesk Morning Digest"
-        push_body = f"You have {total_tasks} tasks on your radar today."
         
+        if total_tasks > 0:
+            push_body = f"You have {total_tasks} tasks on your radar today."
+        else:
+            push_body = f"You have {len(suggested_reading)} items in your reading backlog."
+            
         sub_stmt = select(PushSubscription).where(PushSubscription.user_id == user.id)
         sub_result = await db.execute(sub_stmt)
         subscriptions = sub_result.scalars().all()
