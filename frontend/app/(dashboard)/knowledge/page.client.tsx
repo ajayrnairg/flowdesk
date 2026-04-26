@@ -2,9 +2,6 @@
 
 import { useEffect, useState, useRef } from "react"
 import {
-    getKnowledgeItems,
-    deleteKnowledgeItem,
-    reprocessItems,
     KnowledgeItemOut,
     ContentType,
 } from "@/lib/knowledge"
@@ -15,7 +12,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 import { RefreshCw } from "lucide-react"
-import api from "@/lib/api"
+import { useApi } from "@/hooks/useApi"
 
 const filters = [
     { label: "All", value: undefined },
@@ -27,6 +24,7 @@ const filters = [
 ]
 
 export default function KnowledgePageClient() {
+    const { api: getAuthenticatedApi } = useApi()
     const [items, setItems] = useState<KnowledgeItemOut[]>([])
     const [loading, setLoading] = useState(true)
     const [reprocessing, setReprocessing] = useState(false)
@@ -73,6 +71,7 @@ export default function KnowledgePageClient() {
         formData.append("file", file)
 
         try {
+            const api = await getAuthenticatedApi()
             await api.post("/knowledge/upload-pdf", formData, {
                 headers: { "Content-Type": "multipart/form-data" },
             })
@@ -92,12 +91,15 @@ export default function KnowledgePageClient() {
         setLoading(true)
 
         try {
-            const data = await getKnowledgeItems({
-                content_type: active as ContentType,
-                q: query,
+            const api = await getAuthenticatedApi()
+            const res = await api.get<KnowledgeItemOut[]>("/knowledge", {
+                params: {
+                    content_type: active as ContentType,
+                    q: query,
+                },
                 signal: controller.signal,
             })
-            setItems(data)
+            setItems(res.data)
         } catch (err) {
             if ((err as Error).name !== "CanceledError") {
                 toast.error("Failed to load")
@@ -117,7 +119,8 @@ export default function KnowledgePageClient() {
 
     const handleDelete = async (id: string) => {
         try {
-            await deleteKnowledgeItem(id)
+            const api = await getAuthenticatedApi()
+            await api.delete(`/knowledge/${id}`)
             setItems((prev) => prev.filter((i) => i.id !== id))
         } catch {
             toast.error("Delete failed")
@@ -127,8 +130,9 @@ export default function KnowledgePageClient() {
     const handleReprocess = async () => {
         setReprocessing(true)
         try {
-            const res = await reprocessItems()
-            toast.success(res.message)
+            const api = await getAuthenticatedApi()
+            const res = await api.post("/knowledge/reprocess")
+            toast.success(res.data.message)
             // Refresh the list after a short delay to see if status changed
             setTimeout(fetchData, 1000)
         } catch {

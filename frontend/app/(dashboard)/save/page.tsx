@@ -2,9 +2,9 @@
 
 import { useEffect, useState, Suspense } from "react"
 import { useRouter, useSearchParams, usePathname } from "next/navigation"
-import api from "@/lib/api"
-
-import { getCollections, LibraryCollection } from "@/lib/library"
+import { useApi } from "@/hooks/useApi"
+import { LibraryCollection } from "@/lib/library"
+import { KnowledgeItemOut } from "@/lib/knowledge"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -20,6 +20,7 @@ import {
 import { toast } from "sonner"
 
 function SaveForm() {
+    const { api: getAuthenticatedApi } = useApi()
     const router = useRouter()
     const params = useSearchParams()
     const pathname = usePathname()
@@ -39,15 +40,23 @@ function SaveForm() {
 
     // Fetch Collections
     useEffect(() => {
-        getCollections()
-            .then(setCollections)
-            .catch(() => toast.error("Failed to load collections"))
-    }, [])
+        const fetch = async () => {
+            try {
+                const api = await getAuthenticatedApi()
+                const res = await api.get("/collections")
+                setCollections(res.data)
+            } catch {
+                toast.error("Failed to load collections")
+            }
+        }
+        fetch()
+    }, [getAuthenticatedApi])
 
     const handleSave = async () => {
         setLoading(true)
 
         try {
+            const api = await getAuthenticatedApi()
             if (!selectedText.trim()) {
                 // Let backend extract YouTube/GitHub/Articles automatically
                 await api.post("/knowledge", { 

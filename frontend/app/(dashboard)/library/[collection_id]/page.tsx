@@ -7,6 +7,7 @@ import { KnowledgeItemOut } from "@/lib/knowledge"
 import LibraryItemCard from "@/components/library/LibraryItemCard"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
+import { useApi } from "@/hooks/useApi"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
@@ -17,6 +18,7 @@ import { ArrowLeft, Trash2 } from "lucide-react"
 type TabValue = "ALL" | "UNREAD" | "READING" | "DONE"
 
 export default function CollectionPage() {
+    const { api: getAuthenticatedApi } = useApi()
     const params = useParams()
     const collectionId = params.collection_id as string
 
@@ -31,8 +33,9 @@ export default function CollectionPage() {
     useEffect(() => {
         const fetchCollection = async () => {
             try {
-                const data = await getCollection(collectionId)
-                setCollection(data)
+                const api = await getAuthenticatedApi()
+                const res = await api.get<LibraryCollection>(`/collections/${collectionId}`)
+                setCollection(res.data)
             } catch (error) {
                 toast.error("Failed to fetch collection details")
                 console.error("Failed to fetch collection:", error)
@@ -41,11 +44,12 @@ export default function CollectionPage() {
             }
         }
         fetchCollection()
-    }, [collectionId])
+    }, [collectionId, getAuthenticatedApi])
 
     const handleDelete = async () => {
         try {
-            await deleteCollection(collectionId)
+            const api = await getAuthenticatedApi()
+            await api.delete(`/collections/${collectionId}`)
             toast.success("Collection deleted")
             router.push("/library")
         } catch (error) {
@@ -57,9 +61,15 @@ export default function CollectionPage() {
         const fetchItems = async () => {
             setItemsLoading(true)
             try {
+                const api = await getAuthenticatedApi()
                 const statusParam = activeTab === "ALL" ? undefined : activeTab
-                const data = await getCollectionItems(collectionId, statusParam)
-                setItems(data)
+                const res = await api.get<KnowledgeItemOut[]>(
+                    `/collections/${collectionId}/items`,
+                    {
+                        params: { read_status: statusParam },
+                    }
+                )
+                setItems(res.data)
             } catch (error) {
                 toast.error("Failed to load items")
                 console.error("Failed to fetch items:", error)
@@ -68,7 +78,7 @@ export default function CollectionPage() {
             }
         }
         fetchItems()
-    }, [collectionId, activeTab])
+    }, [collectionId, activeTab, getAuthenticatedApi])
 
     if (loading) {
         return (

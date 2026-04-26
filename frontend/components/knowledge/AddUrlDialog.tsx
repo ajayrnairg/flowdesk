@@ -1,8 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import api from "@/lib/api"
-import { getCollections, LibraryCollection } from "@/lib/library"
+import { useApi } from "@/hooks/useApi"
 import {
     Dialog,
     DialogTrigger,
@@ -23,17 +22,27 @@ import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 
 export default function AddUrlDialog({ onAdded }: { onAdded: () => void }) {
+    const { api: getAuthenticatedApi } = useApi()
     const [url, setUrl] = useState("")
     const [open, setOpen] = useState(false)
     const [loading, setLoading] = useState(false)
-    const [collections, setCollections] = useState<LibraryCollection[]>([])
+    const [collections, setCollections] = useState<any[]>([])
     const [selectedCollectionId, setSelectedCollectionId] = useState<string>("")
 
     useEffect(() => {
         if (open) {
-            getCollections().then(setCollections).catch(() => toast.error("Failed to load collections"))
+            const fetchCollections = async () => {
+                try {
+                    const api = await getAuthenticatedApi()
+                    const res = await api.get("/collections")
+                    setCollections(res.data)
+                } catch (error) {
+                    console.error("Failed to load collections", error)
+                }
+            }
+            fetchCollections()
         }
-    }, [open])
+    }, [open, getAuthenticatedApi])
 
     const isValidUrl = (val: string) => {
         try {
@@ -51,8 +60,8 @@ export default function AddUrlDialog({ onAdded }: { onAdded: () => void }) {
         }
 
         setLoading(true)
-
         try {
+            const api = await getAuthenticatedApi()
             const res = await api.post("/knowledge", { 
                 url,
                 collection_id: selectedCollectionId || undefined

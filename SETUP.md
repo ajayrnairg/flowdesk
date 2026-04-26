@@ -11,7 +11,7 @@ cd backend
 .\venv\Scripts\activate
 
 # Start the dev server with hot reload
-uvicorn main:app --reload
+.\venv\Scripts\python.exe -m uvicorn main:app --reload
 ```
 
 ### 2. Frontend (Next.js 14)

@@ -5,8 +5,10 @@ import { setupPushNotifications } from "@/lib/push"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { useApi } from "@/hooks/useApi"
 
 export default function PushNotificationSetup() {
+    const { api: getAuthenticatedApi } = useApi()
     const [permission, setPermission] = useState<NotificationPermission>("default")
     const [loading, setLoading] = useState(false)
     const [success, setSuccess] = useState(false)
@@ -33,7 +35,8 @@ export default function PushNotificationSetup() {
         setSuccess(false)
         setError(null)
 
-        const result = await setupPushNotifications()
+        const authenticatedApi = await getAuthenticatedApi()
+        const result = await setupPushNotifications(authenticatedApi)
 
         setLoading(false)
 

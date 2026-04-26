@@ -10,16 +10,23 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
 import { BookOpen, Filter, ChevronRight } from "lucide-react"
 import Link from "next/link"
+import { useApi } from "@/hooks/useApi"
+
+interface LibraryResponse {
+    collections: LibraryCollection[]
+}
 
 export default function LibraryPage() {
+    const { api: getAuthenticatedApi } = useApi()
     const [collections, setCollections] = useState<LibraryCollection[]>([])
     const [loading, setLoading] = useState(true)
     const [readingOnly, setReadingOnly] = useState(false)
 
     const fetchLibrary = async () => {
         try {
-            const data = await getLibrary()
-            setCollections(data.collections)
+            const api = await getAuthenticatedApi()
+            const res = await api.get<LibraryResponse>("/collections/library/overview")
+            setCollections(res.data.collections)
         } catch {
             toast.error("Failed to load library")
         } finally {

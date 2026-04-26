@@ -1,7 +1,7 @@
 "use client"
 
 import { KnowledgeItemOut } from "@/lib/knowledge"
-import { updateReadStatus } from "@/lib/library"
+import { useApi } from "@/hooks/useApi"
 import { useState } from "react"
 import {
     DropdownMenu,
@@ -23,6 +23,7 @@ const gradients = {
 }
 
 export default function LibraryItemCard({ item }: { item: KnowledgeItemOut }) {
+    const { api: getAuthenticatedApi } = useApi()
     const [localItem, setLocalItem] = useState(item)
 
     const handleStatus = async (status: "READING" | "DONE" | "UNREAD") => {
@@ -30,10 +31,21 @@ export default function LibraryItemCard({ item }: { item: KnowledgeItemOut }) {
         setLocalItem(prevItem => ({ ...prevItem, read_status: status }))
 
         try {
-            await updateReadStatus(item.id, status)
+            const api = await getAuthenticatedApi()
+            await api.patch(`/collections/items/${item.id}`, { read_status: status })
         } catch (error) {
             setLocalItem(prevItem => ({ ...prevItem, read_status: prev }))
             toast.error("Failed to update status")
+        }
+    }
+
+    const handleDelete = async (id: string) => {
+        try {
+            const api = await getAuthenticatedApi()
+            await api.delete(`/knowledge/${id}`)
+            // Note: setItems would need to be passed as a prop or handled via context to refresh list
+        } catch {
+            toast.error("Delete failed")
         }
     }
 

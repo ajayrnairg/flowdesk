@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { createCollection } from "@/lib/library"
+import { useApi } from "@/hooks/useApi"
 import {
     Dialog,
     DialogContent,
@@ -26,6 +26,7 @@ const colors = [
 ]
 
 export default function CreateCollectionDialog({ onCreated }: { onCreated: () => void }) {
+    const { api: getAuthenticatedApi } = useApi()
     const [open, setOpen] = useState(false)
     const [name, setName] = useState("")
     const [color, setColor] = useState(colors[0])
@@ -39,7 +40,11 @@ export default function CreateCollectionDialog({ onCreated }: { onCreated: () =>
 
         setLoading(true)
         try {
-            await createCollection(name, color)
+            const api = await getAuthenticatedApi()
+            await api.post("/collections", {
+                name,
+                color,
+            })
             toast.success("Collection created")
             setName("")
             setOpen(false)

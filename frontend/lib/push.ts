@@ -1,5 +1,4 @@
-import api from "./api"
-
+// Push Notifications Utils
 // Convert VAPID key
 export function urlBase64ToUint8Array(base64String: string): Uint8Array {
     const padding = "=".repeat((4 - (base64String.length % 4)) % 4)
@@ -78,7 +77,7 @@ export async function subscribeToPush(): Promise<PushSubscription> {
 }
 
 // Save subscription
-export async function savePushSubscription(subscription: PushSubscription) {
+export async function savePushSubscription(api: any, subscription: PushSubscription) {
     const json = subscription.toJSON()
 
     // NOTE: Backend schema expects { endpoint, keys: { p256dh, auth }, user_agent }
@@ -93,7 +92,7 @@ export async function savePushSubscription(subscription: PushSubscription) {
 }
 
 // Full setup
-export async function setupPushNotifications(): Promise<{
+export async function setupPushNotifications(api: any): Promise<{
     success: boolean
     error?: string
 }> {
@@ -107,7 +106,7 @@ export async function setupPushNotifications(): Promise<{
         }
 
         const subscription = await subscribeToPush()
-        await savePushSubscription(subscription)
+        await savePushSubscription(api, subscription)
 
         return { success: true }
     } catch (err: unknown) {

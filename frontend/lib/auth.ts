@@ -4,7 +4,7 @@ import { auth } from "@clerk/nextjs/server"
 // Get token in server components / route handlers
 export async function getClerkToken(): Promise<string | null> {
   const { getToken } = await auth()
-  return await getToken()
+  return await getToken({ template: 'flowdesk' })
 }
 
 /**

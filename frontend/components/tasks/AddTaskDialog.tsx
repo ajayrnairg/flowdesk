@@ -22,12 +22,15 @@ import {
 } from "@/components/ui/select"
 import { toast } from "sonner"
 
+import { useApi } from "@/hooks/useApi"
+
 interface Props {
     scope: TaskScope
     onCreated: () => void
 }
 
 export default function AddTaskDialog({ scope, onCreated }: Props) {
+    const { api: getAuthenticatedApi } = useApi()
     const [open, setOpen] = useState(false)
     const [title, setTitle] = useState("")
     const [notes, setNotes] = useState("")
@@ -44,7 +47,8 @@ export default function AddTaskDialog({ scope, onCreated }: Props) {
         }
 
         try {
-            await createTask({
+            const api = await getAuthenticatedApi()
+            await api.post("/tasks", {
                 title,
                 notes,
                 scope,

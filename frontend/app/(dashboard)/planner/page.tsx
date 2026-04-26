@@ -5,6 +5,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { getTasks, toggleTask, deleteTask, TaskOut, TaskScope } from "@/lib/tasks"
 import TaskCard from "@/components/tasks/TaskCard"
 import AddTaskDialog from "@/components/tasks/AddTaskDialog"
+import { useApi } from "@/hooks/useApi"
 import { toast } from "sonner"
 
 // ─── Inline SVG clipboard icon ────────────────────────────────────────────────
@@ -76,6 +77,7 @@ function LoadingSkeleton() {
 
 // ─── Main Page ─────────────────────────────────────────────────────────────────
 export default function PlannerPage() {
+    const { api } = useApi()
     const [tasks, setTasks] = useState<Record<TaskScope, TaskOut[]>>({
         DAILY: [],
         WEEKLY: [],
@@ -93,8 +95,11 @@ export default function PlannerPage() {
     const fetchTasks = async (scope: TaskScope) => {
         setLoading((prev) => ({ ...prev, [scope]: true }))
         try {
-            const data = await getTasks(scope)
-            setTasks((prev) => ({ ...prev, [scope]: data }))
+            const authenticatedApi = await api()
+            const res = await authenticatedApi.get<TaskOut[]>("/tasks", {
+                params: { scope }
+            })
+            setTasks((prev) => ({ ...prev, [scope]: res.data }))
         } catch {
             toast.error("Failed to load tasks")
         } finally {
@@ -103,11 +108,9 @@ export default function PlannerPage() {
     }
 
     useEffect(() => {
-        Promise.all([
-            fetchTasks(TaskScope.DAILY),
-            fetchTasks(TaskScope.WEEKLY),
-            fetchTasks(TaskScope.MONTHLY),
-        ]).catch(console.error)
+        fetchTasks(TaskScope.DAILY)
+        fetchTasks(TaskScope.WEEKLY)
+        fetchTasks(TaskScope.MONTHLY)
     }, [])
 
     const handleToggle = async (task: TaskOut, scope: TaskScope) => {

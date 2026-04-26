@@ -9,8 +9,10 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Sparkles } from "lucide-react"
 import { toast } from "sonner"
+import { useApi } from "@/hooks/useApi"
 
 export default function SearchPage() {
+    const { api: getAuthenticatedApi } = useApi()
 
     const [query, setQuery] = useState("")
     const [result, setResult] = useState<SearchResponse | null>(null)
@@ -44,8 +46,12 @@ export default function SearchPage() {
         setResult(null)
 
         try {
-            const res = await searchKnowledge(q, controller.signal)
-            setResult(res)
+            const api = await getAuthenticatedApi()
+            const res = await api.get<SearchResponse>("/search", {
+                params: { q },
+                signal: controller.signal
+            })
+            setResult(res.data)
             saveHistory(q)
         } catch (err) {
             // Ignore aborted requests (user started a new search)

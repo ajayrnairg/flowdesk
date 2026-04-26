@@ -6,23 +6,8 @@ const api = axios.create({
     baseURL: process.env.NEXT_PUBLIC_API_URL,
 })
 
-// Attach Clerk token via global Clerk object
-api.interceptors.request.use(async (config) => {
-    if (typeof window !== "undefined" && (window as any).Clerk) {
-        try {
-            const session = (window as any).Clerk.session;
-            if (session) {
-                const token = await session.getToken();
-                if (token) {
-                    config.headers.Authorization = `Bearer ${token}`;
-                }
-            }
-        } catch (err) {
-            console.error("Failed to get Clerk token", err);
-        }
-    }
-    return config;
-});
+// Attach token manually when calling from a hook or component
+// api.defaults.headers.common["Authorization"] will be set by useApi hook
 
 // Handle 401 globally
 api.interceptors.response.use(
