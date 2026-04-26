@@ -4,7 +4,7 @@ import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import type { ReactNode } from "react"
 
-import { isLoggedIn } from "@/lib/auth"
+
 import { Toaster } from "@/components/ui/sonner"
 import { registerServiceWorker } from "@/lib/push"
 import DashboardNav from "@/components/DashboardNav"
@@ -17,12 +17,7 @@ export default function DashboardLayout({
 }) {
     const router = useRouter()
 
-    // 🔐 Auth protection
-    useEffect(() => {
-        if (!isLoggedIn()) {
-            router.replace("/login")
-        }
-    }, [router])
+    // 🔐 Auth protection is now handled by middleware.ts
 
     // 🔔 Register service worker (client-only)
     useEffect(() => {

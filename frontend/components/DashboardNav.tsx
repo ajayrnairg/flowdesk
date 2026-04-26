@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { BookOpen, Search, CalendarDays, Settings } from "lucide-react"
+import { UserButton } from "@clerk/nextjs"
 
 const navItems = [
     {
@@ -70,6 +71,10 @@ export default function DashboardNav() {
                             </Link>
                         )
                     })}
+                </div>
+
+                <div className="ml-4 flex items-center">
+                    <UserButton />
                 </div>
             </div>
         </nav>

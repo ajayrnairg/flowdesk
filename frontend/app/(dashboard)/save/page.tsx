@@ -3,7 +3,7 @@
 import { useEffect, useState, Suspense } from "react"
 import { useRouter, useSearchParams, usePathname } from "next/navigation"
 import api from "@/lib/api"
-import { isLoggedIn } from "@/lib/auth"
+
 import { getCollections, LibraryCollection } from "@/lib/library"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -37,18 +37,12 @@ function SaveForm() {
     const [title, setTitle] = useState(titleParam)
     const [selectedText, setSelectedText] = useState(textParam)
 
-    // 🔐 Auth check & Fetch Collections
+    // Fetch Collections
     useEffect(() => {
-        if (!isLoggedIn()) {
-            const currentUrl = `${pathname}?${params.toString()}`
-            const returnUrl = encodeURIComponent(currentUrl)
-            router.replace(`/login?redirect=${returnUrl}`)
-        } else {
-            getCollections()
-                .then(setCollections)
-                .catch(() => toast.error("Failed to load collections"))
-        }
-    }, [router, pathname, params])
+        getCollections()
+            .then(setCollections)
+            .catch(() => toast.error("Failed to load collections"))
+    }, [])
 
     const handleSave = async () => {
         setLoading(true)

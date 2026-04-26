@@ -1,19 +1,12 @@
-"use client"
+import { auth } from "@clerk/nextjs/server"
+import { redirect } from "next/navigation"
 
-import { useEffect } from "react"
-import { useRouter } from "next/navigation"
-import { isLoggedIn } from "@/lib/auth"
+export default async function Page() {
+  const { userId } = await auth()
 
-export default function HomePage() {
-  const router = useRouter()
-
-  useEffect(() => {
-    if (isLoggedIn()) {
-      router.replace("/planner")
-    } else {
-      router.replace("/login")
-    }
-  }, [router])
-
-  return null
+  if (userId) {
+    redirect("/planner")
+  } else {
+    redirect("/sign-in")
+  }
 }

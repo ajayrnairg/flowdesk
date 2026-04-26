@@ -14,16 +14,20 @@ export const viewport = {
   themeColor: "#0f172a",
 }
 
+import { ClerkProvider } from "@clerk/nextjs"
+
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
   return (
-    <html lang="en">
-      <body className={`${inter.className} bg-gray-50 text-gray-900`}>
-        {children}
-      </body>
-    </html>
+    <ClerkProvider>
+      <html lang="en">
+        <body className={`${inter.className} bg-gray-50 text-gray-900`}>
+          {children}
+        </body>
+      </html>
+    </ClerkProvider>
   )
 }

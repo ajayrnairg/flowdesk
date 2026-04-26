@@ -1,18 +1,17 @@
-const TOKEN_KEY = "flowdesk_token"
+// Server-side usage
+import { auth } from "@clerk/nextjs/server"
 
-export function saveToken(token: string) {
-    localStorage.setItem(TOKEN_KEY, token)
+// Get token in server components / route handlers
+export async function getClerkToken(): Promise<string | null> {
+  const { getToken } = await auth()
+  return await getToken()
 }
 
-export function getToken(): string | null {
-    if (typeof window === "undefined") return null
-    return localStorage.getItem(TOKEN_KEY)
-}
-
-export function removeToken() {
-    localStorage.removeItem(TOKEN_KEY)
-}
-
-export function isLoggedIn(): boolean {
-    return !!getToken()
-}
+/**
+ * Client-side usage:
+ * Use useAuth() from @clerk/nextjs inside components
+ *
+ * Example:
+ * const { getToken } = useAuth()
+ * const token = await getToken()
+ */
