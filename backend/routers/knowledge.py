@@ -203,6 +203,7 @@ async def reprocess_failed_pending(
 async def list_knowledge(
     content_type: Optional[str] = None,
     item_status: Optional[str] = None, # Renamed to avoid shadowing 'status' module
+    is_priority: Optional[bool] = None,
     q: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user)
@@ -214,6 +215,8 @@ async def list_knowledge(
         stmt = stmt.where(KnowledgeItem.content_type == content_type)
     if item_status:
         stmt = stmt.where(KnowledgeItem.status == item_status)
+    if is_priority is not None:
+        stmt = stmt.where(KnowledgeItem.is_priority == is_priority)
     if q:
         # Case-insensitive ilike search on the title
         stmt = stmt.where(KnowledgeItem.title.ilike(f"%{q}%"))

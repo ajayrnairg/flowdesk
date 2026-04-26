@@ -16,6 +16,7 @@ import { useApi } from "@/hooks/useApi"
 
 const filters = [
     { label: "All", value: undefined },
+    { label: "Priority", value: "priority" },
     { label: "Articles", value: "article" },
     { label: "Videos", value: "youtube" },
     { label: "GitHub", value: "github" },
@@ -95,7 +96,8 @@ export default function KnowledgePageClient() {
             const api = await getAuthenticatedApi()
             const res = await api.get<KnowledgeItemOut[]>("/knowledge", {
                 params: {
-                    content_type: active as ContentType,
+                    content_type: active === "priority" ? undefined : active as ContentType,
+                    is_priority: active === "priority" ? true : undefined,
                     q: query,
                 },
                 signal: controller.signal,
@@ -269,9 +271,13 @@ export default function KnowledgePageClient() {
                             item={item}
                             onDelete={handleDelete}
                             onUpdate={(updatedItem) => {
-                                setItems((prev) => 
-                                    prev.map((i) => i.id === updatedItem.id ? updatedItem : i)
-                                )
+                                setItems((prev) => {
+                                    // If we are on the priority tab and the item is no longer priority, remove it
+                                    if (active === "priority" && !updatedItem.is_priority) {
+                                        return prev.filter((i) => i.id !== updatedItem.id)
+                                    }
+                                    return prev.map((i) => i.id === updatedItem.id ? updatedItem : i)
+                                })
                             }}
                         />
                     ))}

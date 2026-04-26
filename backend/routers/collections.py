@@ -146,7 +146,39 @@ async def get_collection(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Fetch a single collection by ID."""
+    """Fetch a single collection by ID, handling virtual Priority List."""
+    if str(collection_id) == "00000000-0000-0000-0000-000000000001":
+        # Virtual Priority Collection
+        # Count items
+        stmt = select(func.count(KnowledgeItem.id)).where(
+            KnowledgeItem.user_id == current_user.id,
+            KnowledgeItem.is_priority == True
+        )
+        count_res = await db.execute(stmt)
+        item_count = count_res.scalar() or 0
+        
+        unread_stmt = select(func.count(KnowledgeItem.id)).where(
+            KnowledgeItem.user_id == current_user.id,
+            KnowledgeItem.is_priority == True,
+            KnowledgeItem.read_status == "UNREAD"
+        )
+        unread_res = await db.execute(unread_stmt)
+        unread_count = unread_res.scalar() or 0
+
+        return CollectionOut(
+            id=collection_id,
+            user_id=current_user.id,
+            name="Priority List",
+            description="Items marked for your morning digest",
+            color="#EAB308",
+            emoji="⭐",
+            is_default=True, # Prevent deletion
+            item_count=item_count,
+            unread_count=unread_count,
+            created_at=current_user.created_at, # dummy
+            updated_at=current_user.created_at
+        )
+
     coll = await _get_collection_or_404(collection_id, current_user, db)
     return CollectionOut.model_validate(coll)
 
@@ -178,9 +210,7 @@ async def list_collection_items(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Lists all knowledge items currently in a specific collection."""
-    await _get_collection_or_404(collection_id, current_user, db)
-
+    """Lists items in collection, handling virtual Priority List."""
     # Prioritize UNREAD items to the top, then sort chronologically
     read_order = case(
         (KnowledgeItem.read_status == "UNREAD", 0),
@@ -188,11 +218,18 @@ async def list_collection_items(
         else_=2,
     )
 
-    stmt = (
-        select(KnowledgeItem)
-        .join(CollectionItem, CollectionItem.knowledge_item_id == KnowledgeItem.id)
-        .where(CollectionItem.collection_id == collection_id)
-    )
+    if str(collection_id) == "00000000-0000-0000-0000-000000000001":
+        stmt = select(KnowledgeItem).where(
+            KnowledgeItem.user_id == current_user.id,
+            KnowledgeItem.is_priority == True
+        )
+    else:
+        await _get_collection_or_404(collection_id, current_user, db)
+        stmt = (
+            select(KnowledgeItem)
+            .join(CollectionItem, CollectionItem.knowledge_item_id == KnowledgeItem.id)
+            .where(CollectionItem.collection_id == collection_id)
+        )
 
     if read_status:
         stmt = stmt.where(KnowledgeItem.read_status == read_status.value)
@@ -338,6 +375,31 @@ async def get_library(
                 items=grouped_items.get(coll.id, []),
             )
         )
+
+    # ── Inject Virtual "Priority List" Collection if it has items
+    priority_stmt = (
+        select(KnowledgeItem)
+        .where(KnowledgeItem.user_id == current_user.id, KnowledgeItem.is_priority == True)
+        .order_by(KnowledgeItem.created_at.desc())
+    )
+    priority_items_rows = (await db.execute(priority_stmt)).scalars().all()
+    
+    if priority_items_rows:
+        priority_items = [LibraryItemPreview.model_validate(item) for item in priority_items_rows[:10]]
+        priority_unread = sum(1 for item in priority_items_rows if item.read_status == "UNREAD")
+        
+        priority_entry = LibraryCollectionEntry(
+            id=uuid.UUID("00000000-0000-0000-0000-000000000001"), # Virtual ID
+            name="Priority List",
+            description="Items marked for your morning digest",
+            color="#EAB308", # Yellow-500
+            emoji="⭐",
+            is_default=False,
+            item_count=len(priority_items_rows),
+            unread_count=priority_unread,
+            items=priority_items
+        )
+        entries.insert(0, priority_entry)
 
     return LibraryResponse(
         collections=entries,
