@@ -44,5 +44,12 @@ class Settings(BaseSettings):
     # Add to Settings class
     EMBEDDING_MODEL: str = "models/gemini-embedding-2"
 
+    # Clerk RSA public key for JWT verification (RS256).
+    # Get this from: Clerk Dashboard → JWT Templates → your template → "PEM Public Key"
+    # In .env, store as a single line with literal \n:
+    #   CLERK_JWT_SIGNING_KEY="-----BEGIN PUBLIC KEY-----\nMIIB...\n-----END PUBLIC KEY-----"
+    # python-jose resolves the \n escapes automatically when reading from env.
+    CLERK_JWT_SIGNING_KEY: str = ""
+
 # Instantiate settings to be imported and used across the app
 settings = Settings()

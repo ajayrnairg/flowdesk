@@ -3,38 +3,11 @@ import uuid
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient
-from sqlalchemy import event, text, select
-from datetime import datetime, timezone
-
-from tests.conftest import TestingSessionLocal, engine_test
-from models.knowledge import KnowledgeItem, Collection, CollectionItem
+from sqlalchemy import event, select
+from models.user import User
+from models.knowledge import KnowledgeItem
 from services.auto_collection_service import auto_add_to_collection
-
-@pytest_asyncio.fixture
-async def auth_data(async_client: AsyncClient) -> dict:
-    email = f"user_{uuid.uuid4()}@example.com"
-    password = "password123"
-    await async_client.post("/auth/register", json={"email": email, "password": password})
-    res = await async_client.post("/auth/login", json={"email": email, "password": password})
-    token = res.json()["access_token"]
-    
-    # Get user details
-    me_res = await async_client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
-    user_id = uuid.UUID(me_res.json()["id"])
-    
-    return {
-        "headers": {"Authorization": f"Bearer {token}"},
-        "user_id": user_id
-    }
-
-@pytest_asyncio.fixture
-async def auth_data_b(async_client: AsyncClient) -> dict:
-    email = f"user_{uuid.uuid4()}@example.com"
-    password = "password123"
-    await async_client.post("/auth/register", json={"email": email, "password": password})
-    res = await async_client.post("/auth/login", json={"email": email, "password": password})
-    token = res.json()["access_token"]
-    return {"headers": {"Authorization": f"Bearer {token}"}}
+from tests.conftest import TestingSessionLocal, engine_test
 
 @pytest_asyncio.fixture
 async def db():
@@ -56,14 +29,12 @@ async def create_test_item(db, user_id, content_type="article"):
     return item
 
 @pytest.mark.asyncio
-async def test_auto_collection_creates_default_on_first_save(async_client: AsyncClient, auth_data: dict, db):
-    user_id = auth_data["user_id"]
-    headers = auth_data["headers"]
+async def test_auto_collection_creates_default_on_first_save(authenticated_client, test_user: User, db):
+    client = await authenticated_client(test_user)
+    item = await create_test_item(db, test_user.id, "article")
+    await auto_add_to_collection(item.id, test_user.id, "article", db)
 
-    item = await create_test_item(db, user_id, "article")
-    await auto_add_to_collection(item.id, user_id, "article", db)
-
-    res = await async_client.get("/collections", headers=headers)
+    res = await client.get("/collections")
     assert res.status_code == 200
     collections = res.json()
     assert len(collections) == 1
@@ -72,17 +43,15 @@ async def test_auto_collection_creates_default_on_first_save(async_client: Async
     assert collections[0]["item_count"] == 1
 
 @pytest.mark.asyncio
-async def test_twitter_and_linkedin_share_same_collection(async_client: AsyncClient, auth_data: dict, db):
-    user_id = auth_data["user_id"]
-    headers = auth_data["headers"]
+async def test_twitter_and_linkedin_share_same_collection(authenticated_client, test_user: User, db):
+    client = await authenticated_client(test_user)
+    item1 = await create_test_item(db, test_user.id, "twitter")
+    item2 = await create_test_item(db, test_user.id, "linkedin")
 
-    item1 = await create_test_item(db, user_id, "twitter")
-    item2 = await create_test_item(db, user_id, "linkedin")
+    await auto_add_to_collection(item1.id, test_user.id, "twitter", db)
+    await auto_add_to_collection(item2.id, test_user.id, "linkedin", db)
 
-    await auto_add_to_collection(item1.id, user_id, "twitter", db)
-    await auto_add_to_collection(item2.id, user_id, "linkedin", db)
-
-    res = await async_client.get("/collections", headers=headers)
+    res = await client.get("/collections")
     assert res.status_code == 200
     collections = res.json()
     assert len(collections) == 1
@@ -90,33 +59,29 @@ async def test_twitter_and_linkedin_share_same_collection(async_client: AsyncCli
     assert collections[0]["item_count"] == 2
 
 @pytest.mark.asyncio
-async def test_auto_collection_is_idempotent(async_client: AsyncClient, auth_data: dict, db):
-    user_id = auth_data["user_id"]
-    headers = auth_data["headers"]
-
-    item = await create_test_item(db, user_id, "youtube")
+async def test_auto_collection_is_idempotent(authenticated_client, test_user: User, db):
+    client = await authenticated_client(test_user)
+    item = await create_test_item(db, test_user.id, "youtube")
 
     # Call it twice
-    await auto_add_to_collection(item.id, user_id, "youtube", db)
-    await auto_add_to_collection(item.id, user_id, "youtube", db)
+    await auto_add_to_collection(item.id, test_user.id, "youtube", db)
+    await auto_add_to_collection(item.id, test_user.id, "youtube", db)
 
-    res = await async_client.get("/collections", headers=headers)
+    res = await client.get("/collections")
     collections = res.json()
     coll_id = collections[0]["id"]
 
-    items_res = await async_client.get(f"/collections/{coll_id}/items", headers=headers)
+    items_res = await client.get(f"/collections/{coll_id}/items")
     assert items_res.status_code == 200
     items = items_res.json()
     assert len(items) == 1
 
 @pytest.mark.asyncio
-async def test_create_custom_collection(async_client: AsyncClient, auth_data: dict):
-    headers = auth_data["headers"]
-
-    res = await async_client.post(
+async def test_create_custom_collection(authenticated_client, test_user: User):
+    client = await authenticated_client(test_user)
+    res = await client.post(
         "/collections",
-        json={"name": "Python Deep Dives", "color": "#10B981"},
-        headers=headers
+        json={"name": "Python Deep Dives", "color": "#10B981"}
     )
     assert res.status_code == 201
     coll = res.json()
@@ -124,78 +89,64 @@ async def test_create_custom_collection(async_client: AsyncClient, auth_data: di
     assert coll["color"] == "#10B981"
     assert coll["is_default"] is False
 
-    list_res = await async_client.get("/collections", headers=headers)
+    list_res = await client.get("/collections")
     collections = list_res.json()
     assert len(collections) == 1
     assert collections[0]["name"] == "Python Deep Dives"
 
 @pytest.mark.asyncio
-async def test_add_item_to_custom_collection(async_client: AsyncClient, auth_data: dict, db):
-    headers = auth_data["headers"]
-    user_id = auth_data["user_id"]
-
-    item = await create_test_item(db, user_id)
+async def test_add_item_to_custom_collection(authenticated_client, test_user: User, db):
+    client = await authenticated_client(test_user)
+    item = await create_test_item(db, test_user.id)
     
-    coll_res = await async_client.post(
-        "/collections",
-        json={"name": "My Custom"},
-        headers=headers
-    )
+    coll_res = await client.post("/collections", json={"name": "My Custom"})
     coll_id = coll_res.json()["id"]
 
-    add_res = await async_client.post(
+    add_res = await client.post(
         f"/collections/{coll_id}/items",
-        json={"knowledge_item_id": str(item.id)},
-        headers=headers
+        json={"knowledge_item_id": str(item.id)}
     )
     assert add_res.status_code == 201
 
-    items_res = await async_client.get(f"/collections/{coll_id}/items", headers=headers)
+    items_res = await client.get(f"/collections/{coll_id}/items")
     assert len(items_res.json()) == 1
     assert items_res.json()[0]["id"] == str(item.id)
 
 @pytest.mark.asyncio
-async def test_add_item_duplicate_returns_409(async_client: AsyncClient, auth_data: dict, db):
-    headers = auth_data["headers"]
-    user_id = auth_data["user_id"]
-
-    item = await create_test_item(db, user_id)
-    coll_res = await async_client.post("/collections", json={"name": "DupTest"}, headers=headers)
+async def test_add_item_duplicate_returns_409(authenticated_client, test_user: User, db):
+    client = await authenticated_client(test_user)
+    item = await create_test_item(db, test_user.id)
+    coll_res = await client.post("/collections", json={"name": "DupTest"})
     coll_id = coll_res.json()["id"]
 
-    await async_client.post(
+    await client.post(
         f"/collections/{coll_id}/items",
-        json={"knowledge_item_id": str(item.id)},
-        headers=headers
+        json={"knowledge_item_id": str(item.id)}
     )
     
-    add_res_2 = await async_client.post(
+    add_res_2 = await client.post(
         f"/collections/{coll_id}/items",
-        json={"knowledge_item_id": str(item.id)},
-        headers=headers
+        json={"knowledge_item_id": str(item.id)}
     )
     assert add_res_2.status_code == 409
 
 @pytest.mark.asyncio
-async def test_remove_item_from_collection_does_not_delete_item(async_client: AsyncClient, auth_data: dict, db):
-    headers = auth_data["headers"]
-    user_id = auth_data["user_id"]
-
-    item = await create_test_item(db, user_id)
-    coll_res = await async_client.post("/collections", json={"name": "DelTest"}, headers=headers)
+async def test_remove_item_from_collection_does_not_delete_item(authenticated_client, test_user: User, db):
+    client = await authenticated_client(test_user)
+    item = await create_test_item(db, test_user.id)
+    coll_res = await client.post("/collections", json={"name": "DelTest"})
     coll_id = coll_res.json()["id"]
 
-    await async_client.post(
+    await client.post(
         f"/collections/{coll_id}/items",
-        json={"knowledge_item_id": str(item.id)},
-        headers=headers
+        json={"knowledge_item_id": str(item.id)}
     )
 
-    del_res = await async_client.delete(f"/collections/{coll_id}/items/{item.id}", headers=headers)
+    del_res = await client.delete(f"/collections/{coll_id}/items/{item.id}")
     assert del_res.status_code == 204
 
     # Item gone from collection
-    items_res = await async_client.get(f"/collections/{coll_id}/items", headers=headers)
+    items_res = await client.get(f"/collections/{coll_id}/items")
     assert len(items_res.json()) == 0
 
     # Item still in DB
@@ -204,43 +155,37 @@ async def test_remove_item_from_collection_does_not_delete_item(async_client: As
     assert result.scalar_one_or_none() is not None
 
 @pytest.mark.asyncio
-async def test_delete_default_collection_forbidden(async_client: AsyncClient, auth_data: dict, db):
-    headers = auth_data["headers"]
-    user_id = auth_data["user_id"]
+async def test_delete_default_collection_forbidden(authenticated_client, test_user: User, db):
+    client = await authenticated_client(test_user)
+    item = await create_test_item(db, test_user.id, "article")
+    await auto_add_to_collection(item.id, test_user.id, "article", db)
 
-    item = await create_test_item(db, user_id, "article")
-    await auto_add_to_collection(item.id, user_id, "article", db)
-
-    colls = await async_client.get("/collections", headers=headers)
+    colls = await client.get("/collections")
     coll_id = colls.json()[0]["id"]
 
-    del_res = await async_client.delete(f"/collections/{coll_id}", headers=headers)
+    del_res = await client.delete(f"/collections/{coll_id}")
     assert del_res.status_code == 403
 
 @pytest.mark.asyncio
-async def test_delete_custom_collection_succeeds(async_client: AsyncClient, auth_data: dict):
-    headers = auth_data["headers"]
-
-    coll_res = await async_client.post("/collections", json={"name": "DelCustom"}, headers=headers)
+async def test_delete_custom_collection_succeeds(authenticated_client, test_user: User):
+    client = await authenticated_client(test_user)
+    coll_res = await client.post("/collections", json={"name": "DelCustom"})
     coll_id = coll_res.json()["id"]
 
-    del_res = await async_client.delete(f"/collections/{coll_id}", headers=headers)
+    del_res = await client.delete(f"/collections/{coll_id}")
     assert del_res.status_code == 204
 
-    colls = await async_client.get("/collections", headers=headers)
+    colls = await client.get("/collections")
     assert len(colls.json()) == 0
 
 @pytest.mark.asyncio
-async def test_read_status_update_to_done_sets_read_at(async_client: AsyncClient, auth_data: dict, db):
-    headers = auth_data["headers"]
-    user_id = auth_data["user_id"]
+async def test_read_status_update_to_done_sets_read_at(authenticated_client, test_user: User, db):
+    client = await authenticated_client(test_user)
+    item = await create_test_item(db, test_user.id)
 
-    item = await create_test_item(db, user_id)
-
-    res = await async_client.patch(
+    res = await client.patch(
         f"/knowledge/{item.id}/read-status",
-        json={"read_status": "DONE"},
-        headers=headers
+        json={"read_status": "DONE"}
     )
     assert res.status_code == 200
     data = res.json()
@@ -249,16 +194,13 @@ async def test_read_status_update_to_done_sets_read_at(async_client: AsyncClient
     assert data["last_opened_at"] is not None
 
 @pytest.mark.asyncio
-async def test_read_status_update_always_sets_last_opened_at(async_client: AsyncClient, auth_data: dict, db):
-    headers = auth_data["headers"]
-    user_id = auth_data["user_id"]
+async def test_read_status_update_always_sets_last_opened_at(authenticated_client, test_user: User, db):
+    client = await authenticated_client(test_user)
+    item = await create_test_item(db, test_user.id)
 
-    item = await create_test_item(db, user_id)
-
-    res = await async_client.patch(
+    res = await client.patch(
         f"/knowledge/{item.id}/read-status",
-        json={"read_status": "READING"},
-        headers=headers
+        json={"read_status": "READING"}
     )
     assert res.status_code == 200
     data = res.json()
@@ -267,20 +209,18 @@ async def test_read_status_update_always_sets_last_opened_at(async_client: Async
     assert data["last_opened_at"] is not None
 
 @pytest.mark.asyncio
-async def test_library_endpoint_returns_all_collections_with_items(async_client: AsyncClient, auth_data: dict, db):
-    headers = auth_data["headers"]
-    user_id = auth_data["user_id"]
-
-    c1 = await async_client.post("/collections", json={"name": "C1"}, headers=headers)
-    c2 = await async_client.post("/collections", json={"name": "C2"}, headers=headers)
+async def test_library_endpoint_returns_all_collections_with_items(authenticated_client, test_user: User, db):
+    client = await authenticated_client(test_user)
+    c1 = await client.post("/collections", json={"name": "C1"})
+    c2 = await client.post("/collections", json={"name": "C2"})
     
-    item1 = await create_test_item(db, user_id)
-    item2 = await create_test_item(db, user_id)
+    item1 = await create_test_item(db, test_user.id)
+    item2 = await create_test_item(db, test_user.id)
 
-    await async_client.post(f"/collections/{c1.json()['id']}/items", json={"knowledge_item_id": str(item1.id)}, headers=headers)
-    await async_client.post(f"/collections/{c2.json()['id']}/items", json={"knowledge_item_id": str(item2.id)}, headers=headers)
+    await client.post(f"/collections/{c1.json()['id']}/items", json={"knowledge_item_id": str(item1.id)})
+    await client.post(f"/collections/{c2.json()['id']}/items", json={"knowledge_item_id": str(item2.id)})
 
-    lib = await async_client.get("/collections/library/overview", headers=headers)
+    lib = await client.get("/collections/library/overview")
     assert lib.status_code == 200
     data = lib.json()
     
@@ -290,18 +230,16 @@ async def test_library_endpoint_returns_all_collections_with_items(async_client:
         assert len(c["items"]) == 1
 
 @pytest.mark.asyncio
-async def test_library_items_capped_at_10_per_shelf(async_client: AsyncClient, auth_data: dict, db):
-    headers = auth_data["headers"]
-    user_id = auth_data["user_id"]
-
-    c1 = await async_client.post("/collections", json={"name": "BigC"}, headers=headers)
+async def test_library_items_capped_at_10_per_shelf(authenticated_client, test_user: User, db):
+    client = await authenticated_client(test_user)
+    c1 = await client.post("/collections", json={"name": "BigC"})
     cid = c1.json()["id"]
 
     for _ in range(15):
-        it = await create_test_item(db, user_id)
-        await async_client.post(f"/collections/{cid}/items", json={"knowledge_item_id": str(it.id)}, headers=headers)
+        it = await create_test_item(db, test_user.id)
+        await client.post(f"/collections/{cid}/items", json={"knowledge_item_id": str(it.id)})
 
-    lib = await async_client.get("/collections/library/overview", headers=headers)
+    lib = await client.get("/collections/library/overview")
     data = lib.json()
     
     coll = data["collections"][0]
@@ -309,46 +247,38 @@ async def test_library_items_capped_at_10_per_shelf(async_client: AsyncClient, a
     assert len(coll["items"]) == 10
 
 @pytest.mark.asyncio
-async def test_ownership(async_client: AsyncClient, auth_data: dict, auth_data_b: dict, db):
-    headers_a = auth_data["headers"]
-    headers_b = auth_data_b["headers"]
+async def test_ownership(authenticated_client, test_user: User, test_user_b: User, db):
+    client_b = await authenticated_client(test_user_b)
+    client_a = await authenticated_client(test_user)
 
-    coll_a = await async_client.post("/collections", json={"name": "UserA Coll"}, headers=headers_a)
+    coll_a = await client_a.post("/collections", json={"name": "UserA Coll"})
     cid = coll_a.json()["id"]
 
     # User B tries to read User A's collection
-    res = await async_client.get(f"/collections/{cid}/items", headers=headers_b)
+    res = await client_b.get(f"/collections/{cid}/items")
     assert res.status_code == 404
 
 @pytest_asyncio.fixture
 def query_counter():
     count = []
-    
     def count_queries(conn, cursor, statement, parameters, context, executemany):
         count.append(1)
-
     event.listen(engine_test.sync_engine, "before_cursor_execute", count_queries)
     yield count
     event.remove(engine_test.sync_engine, "before_cursor_execute", count_queries)
 
 @pytest.mark.asyncio
-async def test_library_uses_two_queries_not_n_plus_one(async_client: AsyncClient, auth_data: dict, db, query_counter: list):
-    headers = auth_data["headers"]
-    user_id = auth_data["user_id"]
-
-    # Create 5 collections, 3 items each
+async def test_library_uses_two_queries_not_n_plus_one(authenticated_client, test_user: User, db, query_counter: list):
+    client = await authenticated_client(test_user)
     for i in range(5):
-        c = await async_client.post("/collections", json={"name": f"Col{i}"}, headers=headers)
+        c = await client.post("/collections", json={"name": f"Col{i}"})
         cid = c.json()["id"]
         for j in range(3):
-            it = await create_test_item(db, user_id)
-            await async_client.post(f"/collections/{cid}/items", json={"knowledge_item_id": str(it.id)}, headers=headers)
+            it = await create_test_item(db, test_user.id)
+            await client.post(f"/collections/{cid}/items", json={"knowledge_item_id": str(it.id)})
 
     query_counter.clear()
-
-    # Hit the library endpoint
-    res = await async_client.get("/collections/library/overview", headers=headers)
+    res = await client.get("/collections/library/overview")
     assert res.status_code == 200
-    
-    # Check that N+1 is avoided. 2 queries for library, plus up to 2 for auth/user lookup. Max 4.
+    # 2 for library, plus dependency overhead. N+1 should be avoided.
     assert len(query_counter) <= 4

@@ -7,6 +7,7 @@ from core.database import get_db
 from core.security import hash_password, verify_password, create_access_token, decode_access_token
 from models.user import User
 from schemas.user import UserCreate, UserLogin, UserOut, Token
+from core.clerk_auth import get_current_user as get_authenticated_user  # ← rename to avoid name clash
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -39,8 +40,16 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession
     return user
 
 
-@router.post("/register", response_model=UserOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/register",
+    response_model=UserOut,
+    status_code=status.HTTP_201_CREATED,
+    deprecated=True,  # ← FastAPI marks this with a strikethrough in /docs
+    summary="[DEPRECATED] Register with password — use Clerk instead",
+)
 async def register_user(user_data: UserCreate, db: AsyncSession = Depends(get_db)):
+    # DEPRECATED: Clerk handles registration. This endpoint will be removed
+    # once all clients have migrated. Do not use for new integrations.
     """Registers a new user."""
     # Check if user already exists
     stmt = select(User).where(User.email == user_data.email)
@@ -64,8 +73,15 @@ async def register_user(user_data: UserCreate, db: AsyncSession = Depends(get_db
     return new_user
 
 
-@router.post("/login", response_model=Token)
+@router.post(
+    "/login",
+    response_model=Token,
+    deprecated=True,
+    summary="[DEPRECATED] Login with password — use Clerk instead",
+)
 async def login_user(user_data: UserLogin, db: AsyncSession = Depends(get_db)):
+    # DEPRECATED: Clerk handles login. This endpoint will be removed
+    # once all clients have migrated. Do not use for new integrations.
     """Authenticates a user and returns a JWT."""
     stmt = select(User).where(User.email == user_data.email)
     result = await db.execute(stmt)
@@ -84,6 +100,6 @@ async def login_user(user_data: UserLogin, db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/me", response_model=UserOut)
-async def read_users_me(current_user: User = Depends(get_current_user)):
+async def read_users_me(current_user: User = Depends(get_authenticated_user)):
     """Returns the currently authenticated user's profile."""
     return current_user

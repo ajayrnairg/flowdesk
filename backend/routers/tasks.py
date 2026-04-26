@@ -4,7 +4,7 @@ from sqlalchemy.future import select
 from uuid import UUID
 
 from core.database import get_db
-from routers.auth import get_current_user
+from core.clerk_auth import get_current_user
 from models.user import User
 from models.task import Task, TaskScope, TaskPriority
 from schemas.task import TaskCreate, TaskUpdate, TaskToggle, TaskOut

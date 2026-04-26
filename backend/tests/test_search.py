@@ -1,51 +1,18 @@
 import uuid
 import pytest
-import pytest_asyncio
 from httpx import AsyncClient
-from sqlalchemy.future import select
-
 from models.user import User
 from models.knowledge import KnowledgeItem, ItemStatus
 from tests.conftest import TestingSessionLocal
 
-@pytest_asyncio.fixture
-async def auth_headers(async_client: AsyncClient) -> dict:
-    email = "search_user_a@example.com"
-    password = "password123"
-    await async_client.post("/auth/register", json={"email": email, "password": password})
-    res = await async_client.post("/auth/login", json={"email": email, "password": password})
-    token = res.json()["access_token"]
-    return {"Authorization": f"Bearer {token}"}
-
-@pytest_asyncio.fixture
-async def auth_headers_b(async_client: AsyncClient) -> dict:
-    email = "search_user_b@example.com"
-    password = "password123"
-    await async_client.post("/auth/register", json={"email": email, "password": password})
-    res = await async_client.post("/auth/login", json={"email": email, "password": password})
-    token = res.json()["access_token"]
-    return {"Authorization": f"Bearer {token}"}
-
-@pytest_asyncio.fixture
-async def user_a(async_client: AsyncClient, auth_headers: dict) -> User:
-    async with TestingSessionLocal() as db:
-        result = await db.execute(select(User).where(User.email == "search_user_a@example.com"))
-        return result.scalar_one()
-
-@pytest_asyncio.fixture
-async def user_b(async_client: AsyncClient, auth_headers_b: dict) -> User:
-    async with TestingSessionLocal() as db:
-        result = await db.execute(select(User).where(User.email == "search_user_b@example.com"))
-        return result.scalar_one()
-
 @pytest.mark.asyncio
-async def test_semantic_search_returns_answer(async_client: AsyncClient, auth_headers: dict, user_a: User, mocker):
-    # Setup: create a KnowledgeItem
+async def test_semantic_search_returns_answer(authenticated_client, test_user: User, mocker):
+    client = await authenticated_client(test_user)
     item_id = uuid.uuid4()
     async with TestingSessionLocal() as db:
         item = KnowledgeItem(
             id=item_id,
-            user_id=user_a.id,
+            user_id=test_user.id,
             url="https://example.com/test",
             title="Test Item",
             raw_text="Some text",
@@ -87,10 +54,9 @@ async def test_semantic_search_returns_answer(async_client: AsyncClient, auth_he
     mocker.patch("routers.search.cache_search_result", return_value=None)
 
     # Execute
-    res = await async_client.post(
+    res = await client.post(
         "/search",
-        json={"query": "test query"},
-        headers=auth_headers
+        json={"query": "test query"}
     )
     
     # Assert
@@ -102,7 +68,8 @@ async def test_semantic_search_returns_answer(async_client: AsyncClient, auth_he
     assert isinstance(data["took_ms"], int) and data["took_ms"] >= 0
 
 @pytest.mark.asyncio
-async def test_cache_hit_returns_cached_result(async_client: AsyncClient, auth_headers: dict, mocker):
+async def test_cache_hit_returns_cached_result(authenticated_client, test_user: User, mocker):
+    client = await authenticated_client(test_user)
     item_id = uuid.uuid4()
     cached_response = {
         "query": "cached query",
@@ -117,17 +84,14 @@ async def test_cache_hit_returns_cached_result(async_client: AsyncClient, auth_h
                 "similarity_score": 0.95
             }
         ]
-        # cached and took_ms are omitted intentionally from the mock
-        # to test that the router injects them
     }
     
     mocker.patch("routers.search.get_cached_search", return_value=cached_response)
     mock_semantic_search = mocker.patch("routers.search.semantic_search")
 
-    res = await async_client.post(
+    res = await client.post(
         "/search",
-        json={"query": "cached query"},
-        headers=auth_headers
+        json={"query": "cached query"}
     )
     
     assert res.status_code == 200
@@ -137,36 +101,37 @@ async def test_cache_hit_returns_cached_result(async_client: AsyncClient, auth_h
     mock_semantic_search.assert_not_called()
 
 @pytest.mark.asyncio
-async def test_empty_knowledge_base_returns_graceful_message(async_client: AsyncClient, auth_headers: dict, mocker):
+async def test_empty_knowledge_base_returns_graceful_message(authenticated_client, test_user: User, mocker):
+    client = await authenticated_client(test_user)
     mocker.patch("routers.search.get_cached_search", return_value=None)
     mocker.patch("routers.search.semantic_search", return_value=[])
     mocker.patch("routers.search.synthesise_answer", return_value="I could not find relevant information in your knowledge base for this query.")
     
-    res = await async_client.post(
+    res = await client.post(
         "/search",
-        json={"query": "no matches"},
-        headers=auth_headers
+        json={"query": "no matches"}
     )
     
     assert res.status_code == 200
     assert "could not find relevant" in res.json()["answer"]
 
 @pytest.mark.asyncio
-async def test_query_too_short_returns_422(async_client: AsyncClient, auth_headers: dict):
-    res = await async_client.post(
+async def test_query_too_short_returns_422(authenticated_client, test_user: User):
+    client = await authenticated_client(test_user)
+    res = await client.post(
         "/search",
-        json={"query": "a"},
-        headers=auth_headers
+        json={"query": "a"}
     )
     assert res.status_code == 422
 
 @pytest.mark.asyncio
-async def test_reindex_endpoint(async_client: AsyncClient, auth_headers: dict, user_a: User, mocker):
+async def test_reindex_endpoint(authenticated_client, test_user: User, mocker):
+    client = await authenticated_client(test_user)
     item_id = uuid.uuid4()
     async with TestingSessionLocal() as db:
         item = KnowledgeItem(
             id=item_id,
-            user_id=user_a.id,
+            user_id=test_user.id,
             content_type="article",
             status=ItemStatus.DONE.value
         )
@@ -175,21 +140,19 @@ async def test_reindex_endpoint(async_client: AsyncClient, auth_headers: dict, u
 
     mocker.patch("routers.search.index_knowledge_item", return_value=None)
 
-    res = await async_client.get(
-        f"/search/reindex/{item_id}",
-        headers=auth_headers
-    )
+    res = await client.get(f"/search/reindex/{item_id}")
     assert res.status_code == 200
     assert res.json() == {"status": "reindexed", "item_id": str(item_id)}
 
 @pytest.mark.asyncio
-async def test_reindex_other_user_item(async_client: AsyncClient, auth_headers_b: dict, user_a: User, mocker):
+async def test_reindex_other_user_item(authenticated_client, test_user: User, test_user_b: User, mocker):
+    client_b = await authenticated_client(test_user_b)
     item_id = uuid.uuid4()
     async with TestingSessionLocal() as db:
         # Create item owned by user A
         item = KnowledgeItem(
             id=item_id,
-            user_id=user_a.id,
+            user_id=test_user.id,
             content_type="article",
             status=ItemStatus.DONE.value
         )
@@ -199,14 +162,12 @@ async def test_reindex_other_user_item(async_client: AsyncClient, auth_headers_b
     mocker.patch("routers.search.index_knowledge_item", return_value=None)
 
     # User B tries to reindex it
-    res = await async_client.get(
-        f"/search/reindex/{item_id}",
-        headers=auth_headers_b
-    )
+    res = await client_b.get(f"/search/reindex/{item_id}")
     assert res.status_code == 404
 
 @pytest.mark.asyncio
-async def test_similarity_score_is_between_0_and_1(async_client: AsyncClient, auth_headers: dict, user_a: User, mocker):
+async def test_similarity_score_is_between_0_and_1(authenticated_client, test_user: User, mocker):
+    client = await authenticated_client(test_user)
     item_id = uuid.uuid4()
     mocker.patch("routers.search.get_cached_search", return_value=None)
     mocker.patch("routers.search.synthesise_answer", return_value="Test")
@@ -228,10 +189,9 @@ async def test_similarity_score_is_between_0_and_1(async_client: AsyncClient, au
     ]
     mocker.patch("routers.search.semantic_search", return_value=mock_chunks)
 
-    res = await async_client.post(
+    res = await client.post(
         "/search",
-        json={"query": "test query"},
-        headers=auth_headers
+        json={"query": "test query"}
     )
     
     assert res.status_code == 200
@@ -246,7 +206,8 @@ async def test_similarity_score_is_between_0_and_1(async_client: AsyncClient, au
         assert 0.0 <= source["similarity_score"] <= 1.0
 
 @pytest.mark.asyncio
-async def test_cache_write_failure_does_not_break_search(async_client: AsyncClient, auth_headers: dict, user_a: User, mocker):
+async def test_cache_write_failure_does_not_break_search(authenticated_client, test_user: User, mocker):
+    client = await authenticated_client(test_user)
     item_id = uuid.uuid4()
     
     mock_chunks = [
@@ -261,10 +222,9 @@ async def test_cache_write_failure_does_not_break_search(async_client: AsyncClie
     mocker.patch("routers.search.synthesise_answer", return_value="Valid Answer")
     mocker.patch("routers.search.cache_search_result", side_effect=Exception("Redis down"))
 
-    res = await async_client.post(
+    res = await client.post(
         "/search",
-        json={"query": "test query"},
-        headers=auth_headers
+        json={"query": "test query"}
     )
     
     assert res.status_code == 200

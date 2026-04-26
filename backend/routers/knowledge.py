@@ -7,7 +7,7 @@ from sqlalchemy.future import select
 from sqlalchemy import or_
 
 from core.database import get_db, AsyncSessionLocal
-from routers.auth import get_current_user
+from core.clerk_auth import get_current_user
 from models.user import User
 from models.knowledge import KnowledgeItem, CollectionItem, ItemStatus, ReadStatus
 from schemas.knowledge import KnowledgeItemCreate, KnowledgeItemOut, IngestAccepted, KnowledgeItemUpdate

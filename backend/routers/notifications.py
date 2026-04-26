@@ -8,7 +8,7 @@ from sqlalchemy.exc import IntegrityError
 
 from core.database import get_db
 from core.config import settings
-from routers.auth import get_current_user
+from core.clerk_auth import get_current_user
 from models.user import User
 from models.notification import NotificationLog, PushSubscription
 from schemas.notification import PushSubscriptionCreate

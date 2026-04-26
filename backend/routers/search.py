@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from core.database import get_db
-from routers.auth import get_current_user
+from core.clerk_auth import get_current_user
 from models.user import User
 from models.knowledge import KnowledgeItem
 
