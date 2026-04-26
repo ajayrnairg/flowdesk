@@ -25,6 +25,7 @@ export interface KnowledgeItemOut {
     cover_image_url: string | null
     estimated_read_minutes: number | null
     is_processed: boolean
+    is_priority: boolean
     read_status: "UNREAD" | "READING" | "DONE"
     read_at: string | null
     last_opened_at: string | null

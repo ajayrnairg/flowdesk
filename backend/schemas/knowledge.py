@@ -38,6 +38,7 @@ class KnowledgeItemCreate(BaseModel):
     tags: list[str] | None = Field(None, max_length=20)
     # If provided, item is added to this collection after creation
     collection_id: uuid.UUID | None = None
+    is_priority: bool | None = None
 
     @field_validator("url")
     @classmethod
@@ -123,6 +124,7 @@ class KnowledgeItemListOut(BaseModel):
     tags: list[str] | None
     is_processed: bool
     status: str
+    is_priority: bool
     read_status: str
     read_at: datetime | None
     last_opened_at: datetime | None
@@ -155,10 +157,11 @@ class KnowledgeItemUpdate(BaseModel):
     title: Annotated[str, Field(min_length=1, max_length=500)] | None = None
     tags: list[str] | None = None
     read_status: Literal["READING", "DONE"] | None = None
+    is_priority: bool | None = None
 
     @model_validator(mode="after")
     def at_least_one_field(self) -> "KnowledgeItemUpdate":
-        if self.title is None and self.tags is None and self.read_status is None:
+        if self.title is None and self.tags is None and self.read_status is None and self.is_priority is None:
             raise ValueError("PATCH body must contain at least one field")
         return self
 

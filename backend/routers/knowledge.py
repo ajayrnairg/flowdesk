@@ -58,7 +58,8 @@ async def ingest_url(
         content_type=content_type,
         tags=payload.tags,
         status=ItemStatus.PENDING.value,
-        is_processed=False
+        is_processed=False,
+        is_priority=payload.is_priority or False
     )
     db.add(new_item)
     await db.commit()
@@ -100,7 +101,8 @@ async def ingest_bookmarklet(
         raw_text=payload.selected_text,
         content_type=payload.content_type,
         status=ItemStatus.PROCESSING.value,
-        is_processed=False
+        is_processed=False,
+        is_priority=payload.is_priority or False
     )
     db.add(new_item)
     await db.commit()

@@ -41,6 +41,7 @@ class KnowledgeItem(Base):
     tags: Mapped[list[str]] = mapped_column(ARRAY(String), nullable=True)
     status: Mapped[str] = mapped_column(String, default=ItemStatus.PENDING.value)
     is_processed: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_priority: Mapped[bool] = mapped_column(Boolean, default=False)
 
     # ── Reading progress ──────────────────────────────────────────────────
     read_status: Mapped[str] = mapped_column(

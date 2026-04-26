@@ -28,6 +28,7 @@ export default function AddUrlDialog({ onAdded }: { onAdded: () => void }) {
     const [loading, setLoading] = useState(false)
     const [collections, setCollections] = useState<any[]>([])
     const [selectedCollectionId, setSelectedCollectionId] = useState<string>("")
+    const [isPriority, setIsPriority] = useState(false)
 
     useEffect(() => {
         if (open) {
@@ -64,7 +65,8 @@ export default function AddUrlDialog({ onAdded }: { onAdded: () => void }) {
             const api = await getAuthenticatedApi()
             const res = await api.post("/knowledge", { 
                 url,
-                collection_id: selectedCollectionId || undefined
+                collection_id: selectedCollectionId || undefined,
+                is_priority: isPriority
             })
 
             if (res.data?.status === "use_bookmarklet") {
@@ -78,6 +80,7 @@ export default function AddUrlDialog({ onAdded }: { onAdded: () => void }) {
             setOpen(false)
             setUrl("")
             setSelectedCollectionId("")
+            setIsPriority(false)
             onAdded()
         } catch {
             toast.error("Failed to save")
@@ -130,6 +133,19 @@ export default function AddUrlDialog({ onAdded }: { onAdded: () => void }) {
                                 ))}
                             </SelectContent>
                         </Select>
+                    </div>
+
+                    <div className="flex items-center space-x-2 pt-2">
+                        <input 
+                            type="checkbox" 
+                            id="is_priority" 
+                            checked={isPriority} 
+                            onChange={(e) => setIsPriority(e.target.checked)}
+                            className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                        <label htmlFor="is_priority" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                            Add to Priority List (Morning Digest)
+                        </label>
                     </div>
 
                     <Button onClick={handleSubmit} disabled={loading} className="w-full">

@@ -1,7 +1,17 @@
+import time
+import logging
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy import text
+
+# Setup logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+)
+logger = logging.getLogger("flowdesk")
 
 from core.database import engine
 from routers import auth, tasks, notifications, knowledge, search
@@ -17,15 +27,15 @@ async def lifespan(app: FastAPI):
         # Simple query to test the NeonDB connection pool on startup
         async with engine.connect() as conn:
             await conn.execute(text("SELECT 1"))
-        print("Successfully connected to the database.")
+        logger.info("Successfully connected to the database.")
     except Exception as e:
-        print(f"Database connection failed: {e}")
+        logger.error(f"Database connection failed: {e}")
         
     yield # App runs and handles requests here
     
     # Shutdown gracefully
     await engine.dispose()
-    print("Database connections closed.")
+    logger.info("Database connections closed.")
 
 
 # Initialize FastAPI app
@@ -35,6 +45,29 @@ app = FastAPI(
     version="1.0.0",
     lifespan=lifespan
 )
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    start_time = time.time()
+    response = await call_next(request)
+    process_time = (time.time() - start_time) * 1000
+    formatted_process_time = "{0:.2f}".format(process_time)
+    
+    # Log everything except health checks to avoid noise
+    if request.url.path != "/health":
+        logger.info(
+            f"{request.method} {request.url.path} - "
+            f"Status: {response.status_code} - {formatted_process_time}ms"
+        )
+    return response
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Internal Server Error on {request.method} {request.url.path}: {exc}", exc_info=True)
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "An internal server error occurred. Please check logs for details."},
+    )
 
 # CORS Configuration
 origins = [

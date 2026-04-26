@@ -8,3 +8,4 @@ class BookmarkletPayload(BaseModel):
     page_title: str
     content_type: str
     collection_id: Optional[UUID] = None
+    is_priority: Optional[bool] = False

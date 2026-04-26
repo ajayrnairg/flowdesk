@@ -4,10 +4,14 @@ import { KnowledgeItemOut } from "@/lib/knowledge"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { useState } from "react"
+import { Star } from "lucide-react"
+import { useApi } from "@/hooks/useApi"
+import { toast } from "sonner"
 
 interface Props {
     item: KnowledgeItemOut
     onDelete: (id: string) => void
+    onUpdate?: (updatedItem: KnowledgeItemOut) => void
 }
 
 function getRelativeTime(dateStr: string): string {
@@ -27,8 +31,10 @@ const gradientMap = {
     linkedin: "from-purple-500 to-purple-700",
 }
 
-export default function KnowledgeItemCard({ item, onDelete }: Props) {
+export default function KnowledgeItemCard({ item, onDelete, onUpdate }: Props) {
     const [confirm, setConfirm] = useState(false)
+    const [togglingPriority, setTogglingPriority] = useState(false)
+    const { api: getAuthenticatedApi } = useApi()
 
     const handleClick = () => {
         if (item.url) {
@@ -36,10 +42,29 @@ export default function KnowledgeItemCard({ item, onDelete }: Props) {
         }
     }
 
+    const togglePriority = async (e: React.MouseEvent) => {
+        e.stopPropagation()
+        setTogglingPriority(true)
+        try {
+            const api = await getAuthenticatedApi()
+            const res = await api.patch<KnowledgeItemOut>(`/knowledge/${item.id}`, {
+                is_priority: !item.is_priority
+            })
+            if (onUpdate) {
+                onUpdate(res.data)
+            }
+            toast.success(item.is_priority ? "Removed from Priority List" : "Added to Priority List")
+        } catch {
+            toast.error("Failed to update priority")
+        } finally {
+            setTogglingPriority(false)
+        }
+    }
+
     return (
         <div 
             onClick={handleClick}
-            className="border rounded-xl overflow-hidden bg-white shadow-sm hover:shadow-md transition cursor-pointer group"
+            className="border rounded-xl overflow-hidden bg-white shadow-sm hover:shadow-md transition cursor-pointer group relative"
         >
             {/* Cover */}
             <div className="relative h-40">
@@ -54,16 +79,31 @@ export default function KnowledgeItemCard({ item, onDelete }: Props) {
                     />
                 )}
 
-                <Badge className="absolute top-2 right-2 capitalize">
-                    {item.content_type}
-                </Badge>
+                <div className="absolute top-2 right-2 flex gap-2 items-center">
+                    <Button
+                        variant="secondary"
+                        size="icon"
+                        className={`h-8 w-8 rounded-full shadow-md bg-white/90 hover:bg-white transition-all ${
+                            item.is_priority ? "text-yellow-500" : "text-gray-400 opacity-0 group-hover:opacity-100"
+                        }`}
+                        onClick={togglePriority}
+                        disabled={togglingPriority}
+                    >
+                        <Star className={`h-4 w-4 ${item.is_priority ? "fill-current" : ""}`} />
+                    </Button>
+                    <Badge className="capitalize shadow-md">
+                        {item.content_type}
+                    </Badge>
+                </div>
             </div>
 
             {/* Body */}
             <div className="p-4 space-y-2">
-                <h3 className="font-semibold line-clamp-2 group-hover:text-primary transition-colors">
-                    {item.title || "Untitled"}
-                </h3>
+                <div className="flex justify-between items-start gap-2">
+                    <h3 className="font-semibold line-clamp-2 group-hover:text-primary transition-colors flex-1">
+                        {item.title || "Untitled"}
+                    </h3>
+                </div>
 
                 {/* Status */}
                 {item.status === "done" && item.summary && (

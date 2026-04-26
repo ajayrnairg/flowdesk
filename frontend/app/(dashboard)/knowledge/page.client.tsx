@@ -241,6 +241,11 @@ export default function KnowledgePageClient() {
                             key={item.id}
                             item={item}
                             onDelete={handleDelete}
+                            onUpdate={(updatedItem) => {
+                                setItems((prev) => 
+                                    prev.map((i) => i.id === updatedItem.id ? updatedItem : i)
+                                )
+                            }}
                         />
                     ))}
                 </div>

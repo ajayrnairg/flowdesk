@@ -68,12 +68,48 @@ async def build_digest_for_user(user_id: uuid.UUID, db: AsyncSession) -> dict:
 
 async def get_suggested_reading(user_id: uuid.UUID, db: AsyncSession) -> list[dict]:
     """
-    Fetches up to 5 suggested reading items, picking at most ONE oldest unread 
-    item per collection.
+    Fetches up to 5 suggested reading items.
+    1. If any items are marked 'is_priority', it returns those first.
+    2. Otherwise, it picks at most ONE oldest unread item per collection.
     """
-    # Use a Window Function (ROW_NUMBER) to partition the items by their collection ID,
-    # and order them by the oldest creation date first. This allows us to pluck exactly
-    # the #1 oldest unread item from each collection without making N+1 queries.
+    # 1. Priority Check
+    priority_stmt = (
+        select(
+            KnowledgeItem.title,
+            KnowledgeItem.summary,
+            KnowledgeItem.url,
+            KnowledgeItem.content_type,
+            KnowledgeItem.estimated_read_minutes,
+            Collection.name.label("collection_name"),
+            Collection.color.label("collection_color")
+        )
+        .outerjoin(CollectionItem, CollectionItem.knowledge_item_id == KnowledgeItem.id)
+        .outerjoin(Collection, Collection.id == CollectionItem.collection_id)
+        .where(
+            KnowledgeItem.user_id == user_id,
+            KnowledgeItem.is_priority == True,
+            KnowledgeItem.status == ItemStatus.DONE.value,
+            KnowledgeItem.read_status != ReadStatus.DONE.value
+        )
+        .order_by(KnowledgeItem.created_at.desc())
+        .limit(5)
+    )
+    
+    priority_res = await db.execute(priority_stmt)
+    priority_rows = priority_res.all()
+    
+    if priority_rows:
+        return [{
+            "collection_name": row.collection_name or "Priority",
+            "collection_color": row.collection_color or "#ef4444", # Red for priority
+            "title": row.title,
+            "summary": row.summary,
+            "url": row.url,
+            "content_type": row.content_type,
+            "estimated_read_minutes": row.estimated_read_minutes
+        } for row in priority_rows]
+
+    # 2. Existing Collection-based Logic
     subq = (
         select(
             KnowledgeItem.id,
@@ -97,8 +133,6 @@ async def get_suggested_reading(user_id: uuid.UUID, db: AsyncSession) -> list[di
         .subquery()
     )
 
-    # Now select from the subquery where row_number = 1, joining the collection
-    # to get its UI metadata (name and color).
     stmt = (
         select(
             Collection.name.label("collection_name"),

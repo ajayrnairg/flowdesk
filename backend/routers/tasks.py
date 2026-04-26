@@ -1,5 +1,7 @@
+import logging
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import func
 from sqlalchemy.future import select
 from uuid import UUID
 
@@ -8,6 +10,8 @@ from core.clerk_auth import get_current_user
 from models.user import User
 from models.task import Task, TaskScope, TaskPriority
 from schemas.task import TaskCreate, TaskUpdate, TaskToggle, TaskOut
+
+logger = logging.getLogger("flowdesk.tasks")
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
@@ -48,7 +52,6 @@ async def list_tasks(
     today = date.today()
 
     # 1. Recurring task spawning logic
-    # Find all 'master' recurring tasks for this user
     master_stmt = select(Task).where(
         Task.user_id == current_user.id,
         Task.is_recurring == True
@@ -60,7 +63,11 @@ async def list_tasks(
     masters = master_res.scalars().all()
 
     for master in masters:
-        # Check if an instance already exists for today
+        # Prevent re-spawning if already spawned today (even if the instance was deleted)
+        if master.last_spawned_at == today:
+            continue
+
+        # Double check if an instance exists (in case last_spawned_at wasn't set)
         instance_stmt = select(Task).where(
             Task.parent_id == master.id,
             Task.due_date == today
@@ -79,13 +86,13 @@ async def list_tasks(
                 is_recurring=False
             )
             db.add(new_instance)
+            # Update master to mark that it spawned today
+            master.last_spawned_at = today
     
-    # Commit any spawned tasks
     await db.commit()
 
     # 2. Main query to return tasks for the UI
     if is_history:
-        # History: All completed tasks, ordered by completion date
         stmt = select(Task).where(
             Task.user_id == current_user.id,
             Task.is_done == True,
@@ -95,7 +102,6 @@ async def list_tasks(
         if scope:
             stmt = stmt.where(Task.scope == scope)
     else:
-        # Planner View: One-offs and instances, excluding templates
         stmt = select(Task).where(
             Task.user_id == current_user.id,
             Task.is_recurring == False
@@ -103,8 +109,6 @@ async def list_tasks(
         
         if scope:
             stmt = stmt.where(Task.scope == scope)
-            
-            # Focused View: Hide yesterday's completed tasks to keep planner clean
             if scope == TaskScope.DAILY:
                 stmt = stmt.where(
                     (Task.is_done == False) | (Task.due_date == today)
@@ -128,7 +132,19 @@ async def create_task(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Creates a new task associated with the current user."""
+    """Creates a new task. Prevents duplicates for the same user."""
+    # Check for existing task with same title (case-insensitive)
+    existing_stmt = select(Task).where(
+        Task.user_id == current_user.id,
+        func.lower(Task.title) == func.lower(payload.title)
+    )
+    existing_res = await db.execute(existing_stmt)
+    if existing_res.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"A task with the title '{payload.title}' already exists."
+        )
+
     new_task = Task(
         user_id=current_user.id,
         **payload.model_dump()
