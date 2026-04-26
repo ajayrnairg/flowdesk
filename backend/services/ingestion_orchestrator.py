@@ -82,6 +82,20 @@ async def run_ingestion_pipeline(item_id: UUID, db: AsyncSession):
         ext_result = {}
         if item.content_type == "youtube":
             ext_result = await fetch_youtube_content(item.url)
+            # Fallback to Jina if IP is blocked (common on cloud hosting like Render)
+            if "error" in ext_result and ext_result["error"] == "youtube_ip_blocked":
+                logger.warning(f"YouTube IP blocked for {item.id}, attempting Jina fallback...")
+                jina_fallback = await fetch_with_jina(item.url)
+                if "error" not in jina_fallback:
+                    # Merge oEmbed metadata (if any) with Jina's content
+                    ext_result = {
+                        "title": ext_result.get("title") or jina_fallback.get("title"),
+                        "raw_text": jina_fallback.get("raw_text"),
+                        "cover_image_url": ext_result.get("cover_image_url") or jina_fallback.get("cover_image_url"),
+                    }
+                    logger.info(f"Jina fallback successful for {item.id}")
+                else:
+                    logger.error(f"Jina fallback also failed for {item.id}: {jina_fallback['error']}")
             
         elif item.content_type == "github":
             ext_result = await fetch_github_content(item.url)

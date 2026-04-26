@@ -16,6 +16,7 @@ export interface TaskCreate {
     priority?: TaskPriority
     due_date?: string | null
     scope: TaskScope
+    is_recurring?: boolean
 }
 
 export interface TaskUpdate {
@@ -23,6 +24,7 @@ export interface TaskUpdate {
     notes?: string | null
     priority?: TaskPriority
     due_date?: string | null
+    is_recurring?: boolean
 }
 
 export interface TaskOut {
@@ -34,6 +36,9 @@ export interface TaskOut {
     priority: TaskPriority
     due_date: string | null
     is_done: boolean
+    is_recurring: boolean
+    parent_id: string | null
+    last_completed_at: string | null
     created_at: string
     updated_at: string
 }

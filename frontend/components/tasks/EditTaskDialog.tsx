@@ -1,14 +1,13 @@
 "use client"
 
-import { useState } from "react"
-import { createTask, TaskPriority, TaskScope } from "@/lib/tasks"
+import { useState, useEffect } from "react"
+import { TaskOut, TaskPriority, updateTask } from "@/lib/tasks"
 import { Button } from "@/components/ui/button"
 import {
     Dialog,
     DialogContent,
     DialogHeader,
     DialogTitle,
-    DialogTrigger,
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -24,77 +23,71 @@ import {
 } from "@/components/ui/select"
 import { toast } from "sonner"
 
-import { useApi } from "@/hooks/useApi"
-
 interface Props {
-    scope: TaskScope
-    onCreated: () => void
+    task: TaskOut | null
+    onClose: () => void
+    onUpdated: () => void
 }
 
-export default function AddTaskDialog({ scope, onCreated }: Props) {
-    const { api: getAuthenticatedApi } = useApi()
-    const [open, setOpen] = useState(false)
+export default function EditTaskDialog({ task, onClose, onUpdated }: Props) {
     const [title, setTitle] = useState("")
     const [notes, setNotes] = useState("")
-    const [priority, setPriority] = useState<TaskPriority>(
-        TaskPriority.MEDIUM
-    )
-    const [date, setDate] = useState<Date | undefined>(new Date())
+    const [priority, setPriority] = useState<TaskPriority>(TaskPriority.MEDIUM)
+    const [date, setDate] = useState<Date | undefined>(undefined)
     const [isRecurring, setIsRecurring] = useState(false)
     const [error, setError] = useState("")
 
+    useEffect(() => {
+        if (task) {
+            setTitle(task.title)
+            setNotes(task.notes || "")
+            setPriority(task.priority)
+            setIsRecurring(task.is_recurring)
+            
+            if (task.due_date) {
+                const parts = task.due_date.split("-")
+                if (parts.length === 3) {
+                    setDate(new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])))
+                } else {
+                    setDate(new Date(task.due_date))
+                }
+            } else {
+                setDate(undefined)
+            }
+        }
+    }, [task])
+
     const handleSubmit = async () => {
+        if (!task) return
         if (!title.trim()) {
             setError("Title is required")
             return
         }
 
         try {
-            const api = await getAuthenticatedApi()
-            let dueDate = date
-
-            // AUTO CALCULATE
-            if (scope === TaskScope.WEEKLY && date) {
-                const d = new Date(date)
-                d.setDate(d.getDate() + 7)
-                dueDate = d
-            }
-
-            if (scope === TaskScope.MONTHLY && date) {
-                const d = new Date(date)
-                d.setDate(d.getDate() + 30)
-                dueDate = d
-            }
-
-            await api.post("/tasks", {
+            await updateTask(task.id, {
                 title,
                 notes,
-                scope,
                 priority,
-                due_date: dueDate ? dueDate.toISOString().split("T")[0] : null,
+                due_date: date ? date.toISOString().split("T")[0] : null,
                 is_recurring: isRecurring,
             })
 
-            setOpen(false)
-            setTitle("")
-            setNotes("")
-            setIsRecurring(false)
             setError("")
-            onCreated()
+            onUpdated()
+            onClose()
         } catch {
-            toast.error("Failed to create task")
+            toast.error("Failed to update task")
         }
     }
 
-    return (
-        <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-                <Button>Add Task</Button>
-            </DialogTrigger>
+    if (!task) return null
 
+    return (
+        <Dialog open={!!task} onOpenChange={(open) => !open && onClose()}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>Add Task</DialogTitle>
+                    <DialogTitle>Edit Task</DialogTitle>
                 </DialogHeader>
 
                 <div className="space-y-4">
@@ -113,11 +106,11 @@ export default function AddTaskDialog({ scope, onCreated }: Props) {
 
                     <div className="flex items-center space-x-2">
                         <Checkbox 
-                            id="recurring" 
+                            id="edit-recurring" 
                             checked={isRecurring} 
                             onCheckedChange={(checked) => setIsRecurring(!!checked)}
                         />
-                        <Label htmlFor="recurring">Recurring</Label>
+                        <Label htmlFor="edit-recurring">Recurring</Label>
                     </div>
 
                     <Select
@@ -136,7 +129,7 @@ export default function AddTaskDialog({ scope, onCreated }: Props) {
 
                     <Calendar mode="single" selected={date} onSelect={setDate} />
 
-                    <Button onClick={handleSubmit}>Create</Button>
+                    <Button onClick={handleSubmit} className="w-full">Save Changes</Button>
                 </div>
             </DialogContent>
         </Dialog>

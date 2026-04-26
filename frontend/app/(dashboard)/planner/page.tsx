@@ -5,6 +5,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { getTasks, toggleTask, deleteTask, TaskOut, TaskScope } from "@/lib/tasks"
 import TaskCard from "@/components/tasks/TaskCard"
 import AddTaskDialog from "@/components/tasks/AddTaskDialog"
+import EditTaskDialog from "@/components/tasks/EditTaskDialog"
 import { useApi } from "@/hooks/useApi"
 import { toast } from "sonner"
 import { AlertCircle, RefreshCcw } from "lucide-react"
@@ -124,7 +125,10 @@ export default function PlannerPage() {
         MONTHLY: false,
     })
 
-    const [activeTab, setActiveTab] = useState<TaskScope>(TaskScope.DAILY)
+    const [activeTab, setActiveTab] = useState<TaskScope | "HISTORY">(TaskScope.DAILY)
+    const [history, setHistory] = useState<TaskOut[]>([])
+    const [historyLoading, setHistoryLoading] = useState(false)
+    const [editingTask, setEditingTask] = useState<TaskOut | null>(null)
 
     const fetchTasks = async (scope: TaskScope) => {
         setLoading((prev) => ({ ...prev, [scope]: true }))
@@ -143,35 +147,66 @@ export default function PlannerPage() {
         }
     }
 
+    const fetchHistory = async () => {
+        setHistoryLoading(true)
+        try {
+            const authenticatedApi = await api()
+            const res = await authenticatedApi.get<TaskOut[]>("/tasks", {
+                params: { is_history: true }
+            })
+            setHistory(res.data)
+        } catch {
+            toast.error("Failed to load history")
+        } finally {
+            setHistoryLoading(false)
+        }
+    }
+
     useEffect(() => {
         fetchTasks(TaskScope.DAILY)
         fetchTasks(TaskScope.WEEKLY)
         fetchTasks(TaskScope.MONTHLY)
+        fetchHistory()
     }, [])
 
-    const handleToggle = async (task: TaskOut, scope: TaskScope) => {
+    const handleToggle = async (task: TaskOut, scope: TaskScope | "HISTORY") => {
         const newState = !task.is_done
-        setTasks((prev) => ({
-            ...prev,
-            [scope]: prev[scope].map((t) =>
-                t.id === task.id ? { ...t, is_done: newState } : t
-            ),
-        }))
+        
+        if (scope === "HISTORY") {
+            setHistory((prev) => prev.map(t => t.id === task.id ? { ...t, is_done: newState } : t))
+        } else {
+            setTasks((prev) => ({
+                ...prev,
+                [scope]: prev[scope].map((t) =>
+                    t.id === task.id ? { ...t, is_done: newState } : t
+                ),
+            }))
+        }
+
         try {
             await toggleTask(task.id, newState)
+            if (newState) {
+                // If marked as done, refresh history
+                fetchHistory()
+            }
         } catch {
             toast.error("Error toggling task")
-            await fetchTasks(scope)
+            if (scope !== "HISTORY") await fetchTasks(scope)
+            fetchHistory()
         }
     }
 
-    const handleDelete = async (id: string, scope: TaskScope) => {
+    const handleDelete = async (id: string, scope: TaskScope | "HISTORY") => {
         try {
             await deleteTask(id)
-            setTasks((prev) => ({
-                ...prev,
-                [scope]: prev[scope].filter((t) => t.id !== id),
-            }))
+            if (scope === "HISTORY") {
+                setHistory(prev => prev.filter(t => t.id !== id))
+            } else {
+                setTasks((prev) => ({
+                    ...prev,
+                    [scope]: prev[scope].filter((t) => t.id !== id),
+                }))
+            }
         } catch {
             toast.error("Delete failed")
         }
@@ -197,7 +232,7 @@ export default function PlannerPage() {
                     <AllDoneState count={done.length} />
                     <div className="space-y-3 opacity-60">
                         <p className="text-xs font-medium uppercase tracking-wide text-gray-400 px-1">
-                            Completed
+                            Completed Today
                         </p>
                         {done.map((task) => (
                             <TaskCard
@@ -205,6 +240,7 @@ export default function PlannerPage() {
                                 task={task}
                                 onToggle={(t) => handleToggle(t, scope)}
                                 onDelete={(id) => handleDelete(id, scope)}
+                                onEdit={setEditingTask}
                             />
                         ))}
                     </div>
@@ -221,6 +257,7 @@ export default function PlannerPage() {
                         task={task}
                         onToggle={(t) => handleToggle(t, scope)}
                         onDelete={(id) => handleDelete(id, scope)}
+                        onEdit={setEditingTask}
                     />
                 ))}
 
@@ -229,7 +266,7 @@ export default function PlannerPage() {
                         <div className="flex items-center gap-2 pt-2">
                             <hr className="flex-1 border-gray-200" />
                             <span className="text-xs text-gray-400 whitespace-nowrap">
-                                {done.length} completed
+                                {done.length} completed today
                             </span>
                             <hr className="flex-1 border-gray-200" />
                         </div>
@@ -240,6 +277,7 @@ export default function PlannerPage() {
                                     task={task}
                                     onToggle={(t) => handleToggle(t, scope)}
                                     onDelete={(id) => handleDelete(id, scope)}
+                                    onEdit={setEditingTask}
                                 />
                             ))}
                         </div>
@@ -249,11 +287,38 @@ export default function PlannerPage() {
         )
     }
 
+    const renderHistory = () => {
+        if (historyLoading) return <LoadingSkeleton />
+        if (history.length === 0) {
+            return (
+                <div className="text-center py-12 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
+                    <p className="text-gray-500">No completed tasks yet. Finish something!</p>
+                </div>
+            )
+        }
+
+        return (
+            <div className="space-y-6">
+                <div className="space-y-3">
+                    {history.map((task) => (
+                        <TaskCard
+                            key={task.id}
+                            task={task}
+                            onToggle={(t) => handleToggle(t, "HISTORY")}
+                            onDelete={(id) => handleDelete(id, "HISTORY")}
+                            onEdit={setEditingTask}
+                        />
+                    ))}
+                </div>
+            </div>
+        )
+    }
+
     return (
         <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 max-w-2xl mx-auto">
             <Tabs
                 defaultValue={TaskScope.DAILY}
-                onValueChange={(v) => setActiveTab(v as TaskScope)}
+                onValueChange={(v) => setActiveTab(v as any)}
             >
                 {/* Header row — stacks vertically on mobile */}
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -262,26 +327,44 @@ export default function PlannerPage() {
                             Today
                         </TabsTrigger>
                         <TabsTrigger value={TaskScope.WEEKLY} className="flex-1 sm:flex-none">
-                            This Week
+                            Week
                         </TabsTrigger>
                         <TabsTrigger value={TaskScope.MONTHLY} className="flex-1 sm:flex-none">
-                            This Month
+                            Month
+                        </TabsTrigger>
+                        <TabsTrigger value="HISTORY" className="flex-1 sm:flex-none">
+                            History
                         </TabsTrigger>
                     </TabsList>
 
                     {/* Add Task button scoped to the currently active tab */}
-                    <div className="sm:ml-auto">
-                        <AddTaskDialog
-                            scope={activeTab}
-                            onCreated={() => fetchTasks(activeTab)}
-                        />
-                    </div>
+                    {activeTab !== "HISTORY" && (
+                        <div className="sm:ml-auto">
+                            <AddTaskDialog
+                                scope={activeTab as TaskScope}
+                                onCreated={() => fetchTasks(activeTab as TaskScope)}
+                            />
+                        </div>
+                    )}
                 </div>
 
                 <TabsContent value={TaskScope.DAILY}>{renderTasks(TaskScope.DAILY)}</TabsContent>
                 <TabsContent value={TaskScope.WEEKLY}>{renderTasks(TaskScope.WEEKLY)}</TabsContent>
                 <TabsContent value={TaskScope.MONTHLY}>{renderTasks(TaskScope.MONTHLY)}</TabsContent>
+                <TabsContent value="HISTORY">{renderHistory()}</TabsContent>
             </Tabs>
+
+            {/* Edit Task Dialog */}
+            <EditTaskDialog
+                task={editingTask}
+                onClose={() => setEditingTask(null)}
+                onUpdated={() => {
+                    if (editingTask) {
+                        if (activeTab === "HISTORY") fetchHistory()
+                        else fetchTasks(editingTask.scope)
+                    }
+                }}
+            />
         </div>
     )
 }

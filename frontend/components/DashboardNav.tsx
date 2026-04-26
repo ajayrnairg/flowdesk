@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { BookOpen, Search, CalendarDays, Settings } from "lucide-react"
@@ -25,13 +26,7 @@ const navItems = [
         label: "Search",
         href: "/search",
         icon: Search,
-        shortcut: (
-            <span className="ml-1.5 hidden sm:inline-flex items-center gap-0.5 text-[10px] font-medium bg-muted border border-border rounded px-1 py-0.5 text-muted-foreground leading-none">
-                <span className="hidden sm:inline">⌘</span>
-                <span className="sm:hidden">Ctrl</span>
-                K
-            </span>
-        ),
+        hasShortcut: true,
     },
     {
         label: "Settings",
@@ -42,6 +37,11 @@ const navItems = [
 
 export default function DashboardNav() {
     const pathname = usePathname()
+    const [isMac, setIsMac] = useState(false)
+
+    useEffect(() => {
+        setIsMac(navigator.platform.toUpperCase().indexOf("MAC") >= 0)
+    }, [])
 
     return (
         <nav className="sticky top-0 z-40 w-full border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -52,7 +52,7 @@ export default function DashboardNav() {
                 </span>
 
                 <div className="flex items-center gap-1 flex-1">
-                    {navItems.map(({ label, href, icon: Icon, shortcut }) => {
+                    {navItems.map(({ label, href, icon: Icon, hasShortcut }) => {
                         const active = pathname.startsWith(href)
                         return (
                             <Link
@@ -67,7 +67,12 @@ export default function DashboardNav() {
                             >
                                 <Icon className="w-4 h-4 shrink-0" />
                                 <span className="hidden sm:inline">{label}</span>
-                                {shortcut}
+                                {hasShortcut && (
+                                    <span className="ml-1.5 hidden sm:inline-flex items-center gap-0.5 text-[10px] font-medium bg-muted border border-border rounded px-1 py-0.5 text-muted-foreground leading-none opacity-70">
+                                        <span>{isMac ? "⌘" : "Ctrl"}</span>
+                                        <span>K</span>
+                                    </span>
+                                )}
                             </Link>
                         )
                     })}

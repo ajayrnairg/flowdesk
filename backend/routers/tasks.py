@@ -35,32 +35,89 @@ async def get_task_or_fail(task_id: UUID, current_user: User, db: AsyncSession) 
 async def list_tasks(
     scope: TaskScope | None = Query(None, description="Filter by task scope"),
     is_done: bool | None = Query(None, description="Filter by completion status"),
+    is_history: bool = Query(False, description="Whether to return historical completed tasks"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
     """
     Get all tasks for the current user.
+    Spawns new instances for recurring tasks if they don't exist for today.
     Ordered by: Incomplete first -> High priority first -> Due date earliest first.
     """
-    # 1. Base query constrained strictly to the current user
-    stmt = select(Task).where(Task.user_id == current_user.id)
-    
-    # 2. Apply optional filters
-    if scope:
-        stmt = stmt.where(Task.scope == scope)
-    if is_done is not None:
-        stmt = stmt.where(Task.is_done == is_done)
-        
-    # 3. Apply complex ordering
-    # - is_done.asc(): False (0) comes before True (1), so undone tasks appear first.
-    # - priority.desc(): Postgres Enum uses creation order (LOW, MEDIUM, HIGH). 
-    #   Descending makes HIGH appear first.
-    # - due_date.asc().nulls_last(): Earliest due dates first; tasks without due dates go to the bottom.
-    stmt = stmt.order_by(
-        Task.is_done.asc(),
-        Task.priority.desc(),
-        Task.due_date.asc().nulls_last()
+    from datetime import date
+    today = date.today()
+
+    # 1. Recurring task spawning logic
+    # Find all 'master' recurring tasks for this user
+    master_stmt = select(Task).where(
+        Task.user_id == current_user.id,
+        Task.is_recurring == True
     )
+    if scope:
+        master_stmt = master_stmt.where(Task.scope == scope)
+    
+    master_res = await db.execute(master_stmt)
+    masters = master_res.scalars().all()
+
+    for master in masters:
+        # Check if an instance already exists for today
+        instance_stmt = select(Task).where(
+            Task.parent_id == master.id,
+            Task.due_date == today
+        )
+        instance_res = await db.execute(instance_stmt)
+        if not instance_res.scalar_one_or_none():
+            # Create a fresh instance for today
+            new_instance = Task(
+                user_id=current_user.id,
+                title=master.title,
+                notes=master.notes,
+                scope=master.scope,
+                priority=master.priority,
+                due_date=today,
+                parent_id=master.id,
+                is_recurring=False
+            )
+            db.add(new_instance)
+    
+    # Commit any spawned tasks
+    await db.commit()
+
+    # 2. Main query to return tasks for the UI
+    if is_history:
+        # History: All completed tasks, ordered by completion date
+        stmt = select(Task).where(
+            Task.user_id == current_user.id,
+            Task.is_done == True,
+            Task.is_recurring == False
+        ).order_by(Task.updated_at.desc())
+        
+        if scope:
+            stmt = stmt.where(Task.scope == scope)
+    else:
+        # Planner View: One-offs and instances, excluding templates
+        stmt = select(Task).where(
+            Task.user_id == current_user.id,
+            Task.is_recurring == False
+        )
+        
+        if scope:
+            stmt = stmt.where(Task.scope == scope)
+            
+            # Focused View: Hide yesterday's completed tasks to keep planner clean
+            if scope == TaskScope.DAILY:
+                stmt = stmt.where(
+                    (Task.is_done == False) | (Task.due_date == today)
+                )
+    
+        if is_done is not None:
+            stmt = stmt.where(Task.is_done == is_done)
+            
+        stmt = stmt.order_by(
+            Task.is_done.asc(),
+            Task.priority.desc(),
+            Task.due_date.asc().nulls_last()
+        )
     
     result = await db.execute(stmt)
     return result.scalars().all()
@@ -91,9 +148,7 @@ async def update_task(
     """Partially updates a task's title, notes, priority, or due_date."""
     task = await get_task_or_fail(task_id, current_user, db)
     
-    # exclude_unset=True ensures we only touch fields the client explicitly sent
     update_data = payload.model_dump(exclude_unset=True)
-    
     for key, value in update_data.items():
         setattr(task, key, value)
         
@@ -112,6 +167,10 @@ async def toggle_task_status(
     task = await get_task_or_fail(task_id, current_user, db)
     
     task.is_done = payload.is_done
+    if payload.is_done:
+        from datetime import date
+        task.last_completed_at = date.today()
+        
     await db.commit()
     await db.refresh(task)
     return task

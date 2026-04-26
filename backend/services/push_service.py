@@ -1,8 +1,11 @@
 import json
 import asyncio
+import logging
 from pywebpush import webpush, WebPushException
 from core.config import settings
 from models.notification import PushSubscription
+
+logger = logging.getLogger(__name__)
 
 # Robust import for the Vapid library (handles both 'vapid' and 'py_vapid' package names)
 try:
@@ -18,7 +21,7 @@ def _get_vapid_obj():
     Returns a Vapid object loaded directly from the Base64URL private key string.
     """
     if Vapid is None:
-        print("ERROR: Vapid library not found in environment")
+        logger.error("Vapid library not found in environment")
         return None
 
     raw_key = (settings.VAPID_PRIVATE_KEY or "").strip().strip('"').strip("'")
@@ -26,7 +29,7 @@ def _get_vapid_obj():
         # Vapid.from_string is the standard way to load a base64url or PEM key
         return Vapid.from_string(raw_key.replace("\\n", "\n"))
     except Exception as e:
-        print(f"ERROR: Could not load VAPID key: {e}")
+        logger.error(f"Could not load VAPID key: {e}")
         return None
 
 async def send_push_notification(subscription: PushSubscription, title: str, body: str):
@@ -58,8 +61,8 @@ async def send_push_notification(subscription: PushSubscription, title: str, bod
         response_status = getattr(getattr(e, "response", None), "status_code", None)
         if response_status == 410 or "410" in str(e):
             return "EXPIRED"
-        print(f"WebPush Exception for sub {subscription.id}: {e}")
+        logger.error(f"WebPush Exception for sub {subscription.id}: {e}")
         return False
     except Exception as e:
-        print(f"Unknown Push Exception for sub {subscription.id}: {e}")
+        logger.error(f"Unknown Push Exception for sub {subscription.id}: {e}")
         return False

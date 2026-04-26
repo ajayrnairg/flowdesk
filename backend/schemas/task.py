@@ -9,6 +9,7 @@ class TaskBase(BaseModel):
     notes: str | None = None
     priority: TaskPriority = TaskPriority.MEDIUM
     due_date: date | None = None
+    is_recurring: bool = False
     model_config = ConfigDict(use_enum_values=True)
 
 # Used for POST /tasks
@@ -21,6 +22,7 @@ class TaskUpdate(BaseModel):
     notes: str | None = None
     priority: TaskPriority | None = None
     due_date: date | None = None
+    is_recurring: bool | None = None
     model_config = ConfigDict(use_enum_values=True)
 
 # Used for PATCH /tasks/{task_id}/toggle
@@ -33,6 +35,8 @@ class TaskOut(TaskBase):
     user_id: UUID
     scope: TaskScope
     is_done: bool
+    last_completed_at: date | None = None
+    parent_id: UUID | None = None
     created_at: datetime
     updated_at: datetime
 

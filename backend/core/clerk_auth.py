@@ -44,7 +44,7 @@ async def get_current_user(
     a FlowDesk account but no clerk_user_id yet.
     """
     token = credentials.credentials
-    print(f"DEBUG: Received token: {token[:20]}...")
+    token = credentials.credentials
 
     # ── Step 1: verify and decode ─────────────────────────────────────────
     try:
@@ -59,9 +59,7 @@ async def get_current_user(
             # If your JWT template sets no audience, pass options={"verify_aud": False}
             options={"verify_aud": False},
         )
-        print(f"DEBUG: Decoded Payload: {payload}")
     except ExpiredSignatureError as exc:
-        print(f"DEBUG: Token expired: {exc}")
         logger.warning("Clerk JWT expired: %s", exc)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -69,7 +67,6 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
     except JWTError as exc:
-        print(f"DEBUG: JWTError: {exc}")
         logger.warning("Clerk JWT verification failed: %s", exc)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -81,7 +78,6 @@ async def get_current_user(
     # "user_id" is the custom claim added in the Clerk JWT template.
     # "email" is typically in the top-level claims or inside "email_addresses".
     # Adjust the claim keys to match your exact Clerk JWT template output.
-    print(f"DEBUG: JWT Payload: {payload}") # Add this line
 
     clerk_user_id: str | None = payload.get("user_id")
     email: str | None = payload.get("email")

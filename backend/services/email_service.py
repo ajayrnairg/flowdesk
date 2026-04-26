@@ -1,4 +1,5 @@
 import resend
+import logging
 from zoneinfo import ZoneInfo
 from datetime import datetime
 from core.config import settings
@@ -6,6 +7,7 @@ from models.user import User
 
 # Initialize Resend
 resend.api_key = settings.RESEND_API_KEY
+logger = logging.getLogger(__name__)
 
 def _build_task_html(tasks: list) -> str:
     """Helper to build list items for tasks."""
@@ -89,5 +91,5 @@ async def send_digest_email(user: User, digest_data: dict, suggested_reading: li
         })
         return True
     except Exception as e:
-        print(f"Failed to send email to {user.email}: {e}")
+        logger.error(f"Failed to send email to {user.email}: {e}")
         return False

@@ -54,6 +54,15 @@ class Task(Base):
         Boolean, nullable=False, default=False, server_default=expression.false()
     )
 
+    last_completed_at: Mapped[date | None] = mapped_column(Date, nullable=True)
+
+    is_recurring: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=expression.false()
+    )
+    parent_id: Mapped[uuid.UUID | None] = mapped_column(
+        PG_UUID(as_uuid=True), ForeignKey("tasks.id", ondelete="SET NULL"), nullable=True
+    )
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc)
     )
