@@ -1,6 +1,7 @@
 import uuid
 import pytest
 from httpx import AsyncClient
+from unittest.mock import AsyncMock
 from models.user import User
 from models.knowledge import KnowledgeItem, ItemStatus
 from tests.conftest import TestingSessionLocal
@@ -138,7 +139,7 @@ async def test_reindex_endpoint(authenticated_client, test_user: User, mocker):
         db.add(item)
         await db.commit()
 
-    mocker.patch("routers.search.index_knowledge_item", return_value=None)
+    mocker.patch("routers.search.index_knowledge_item", new_callable=AsyncMock)
 
     res = await client.get(f"/search/reindex/{item_id}")
     assert res.status_code == 200

@@ -67,7 +67,7 @@ async def create_test_user(db: AsyncSession, email: str, clerk_id: str = None) -
     clerk_id = clerk_id or f"user_{email.split('@')[0]}"
     user = User(
         email=email,
-        hashed_password="",
+        hashed_password="test_hashed_password",
         clerk_user_id=clerk_id,
         is_active=True
     )
@@ -83,12 +83,18 @@ async def authenticated_client(async_client, setup_test_db):
     Returns a factory function that creates an authenticated client for a given user.
     Usage: client = await authenticated_client(some_user)
     """
+    from fastapi.security import HTTPAuthorizationCredentials
+    from core.clerk_auth import _bearer_scheme
+
     class AuthenticatedClient:
         def __init__(self, user):
             self.user = user
         
         async def _request(self, method, *args, **kwargs):
             app.dependency_overrides[get_current_user] = lambda: self.user
+            app.dependency_overrides[_bearer_scheme] = lambda: HTTPAuthorizationCredentials(
+                scheme="Bearer", credentials="mock_clerk_token"
+            )
             return await getattr(async_client, method)(*args, **kwargs)
         
         async def get(self, *args, **kwargs): return await self._request("get", *args, **kwargs)

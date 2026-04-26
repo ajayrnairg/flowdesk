@@ -96,6 +96,39 @@ export default function SearchPage() {
             )}
 
             {/* Result */}
+            {!result && !loading && (
+                <div className="flex flex-col items-center justify-center py-16 text-center space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                    <div className="p-4 bg-purple-50 rounded-2xl">
+                        <svg className="w-12 h-12 text-purple-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                            <path d="M12 3l1.912 4.913L19 10l-5.088 2.087L12 17l-1.912-4.913L5 10l5.088-2.087L12 3z" />
+                            <path d="M5 3l1 2m2-1L6 6" />
+                            <path d="M19 19l1 2m2-1l-2 2" />
+                        </svg>
+                    </div>
+                    <div className="space-y-2">
+                        <h2 className="text-2xl font-bold text-gray-900">Search your knowledge base</h2>
+                        <p className="text-gray-500 max-w-sm">
+                            Ask anything — "that article about React hooks" or "how does pgvector work"
+                        </p>
+                    </div>
+                    <div className="flex flex-wrap justify-center gap-2 max-w-lg">
+                        {[
+                            "Articles I saved this week",
+                            "Python tutorials",
+                            "System design concepts"
+                        ].map((suggestion) => (
+                            <button
+                                key={suggestion}
+                                onClick={() => handleSearch(suggestion)}
+                                className="px-4 py-2 text-sm bg-white border border-gray-200 rounded-full hover:border-purple-300 hover:bg-purple-50 transition-all text-gray-600 hover:text-purple-700"
+                            >
+                                {suggestion}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {result && (
                 <>
                     {/* Empty state: no sources returned */}

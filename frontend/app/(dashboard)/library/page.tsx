@@ -91,7 +91,31 @@ export default function LibraryPage() {
                         </div>
                     </div>
                 ))
-                : collections.map((c) => {
+                : collections.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-24 text-center px-4 max-w-md mx-auto space-y-6">
+                        <div className="w-24 h-24 bg-primary/5 rounded-full flex items-center justify-center">
+                            <svg className="w-12 h-12 text-primary/40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                                <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+                                <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+                                <path d="M12 6v6m-3-3h6" />
+                            </svg>
+                        </div>
+                        <div className="space-y-2">
+                            <h2 className="text-2xl font-bold tracking-tight text-gray-900">Your library is empty</h2>
+                            <p className="text-muted-foreground text-base">
+                                Save articles, videos, and repos to build your personal knowledge library and see them organized here.
+                            </p>
+                        </div>
+                        <div className="flex flex-col sm:flex-row gap-3 w-full">
+                            <Button asChild className="flex-1">
+                                <Link href="/knowledge">Save your first URL</Link>
+                            </Button>
+                            <Button asChild variant="outline" className="flex-1">
+                                <Link href="/settings">Install bookmarklet</Link>
+                            </Button>
+                        </div>
+                    </div>
+                ) : collections.map((c) => {
                     const items = readingOnly
                         ? c.items.filter((i) => i.read_status === "READING")
                         : c.items
@@ -117,7 +141,10 @@ export default function LibraryPage() {
                                     No items yet — save some content!
                                 </p>
                             ) : (
-                                <div className="flex overflow-x-auto gap-3 pb-3 scrollbar-hide">
+                                <div 
+                                    className="flex overflow-x-auto gap-3 pb-3 scrollbar-hide"
+                                    style={{ WebkitOverflowScrolling: 'touch' }}
+                                >
                                     {items.map((item) => (
                                         <LibraryItemCard key={item.id} item={item} />
                                     ))}

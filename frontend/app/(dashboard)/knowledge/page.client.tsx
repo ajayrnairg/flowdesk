@@ -212,9 +212,28 @@ export default function KnowledgePageClient() {
                     ))}
                 </div>
             ) : items.length === 0 ? (
-                <p className="text-gray-500">
-                    No items found for this filter.
-                </p>
+                <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
+                    <div className="p-4 bg-gray-50 rounded-full">
+                        <svg className="w-12 h-12 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </div>
+                    <div className="space-y-1">
+                        <h3 className="text-lg font-medium text-gray-900">No results for "{query || active}"</h3>
+                        <p className="text-sm text-gray-500 max-w-xs mx-auto">
+                            We couldn't find any items matching your search or filters.
+                        </p>
+                    </div>
+                    {(query || active) && (
+                        <Button 
+                            variant="outline" 
+                            size="sm" 
+                            onClick={() => { setQuery(""); setActive(undefined); }}
+                        >
+                            Clear search & filters
+                        </Button>
+                    )}
+                </div>
             ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {items.map((item) => (

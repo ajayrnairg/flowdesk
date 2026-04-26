@@ -7,6 +7,8 @@ import TaskCard from "@/components/tasks/TaskCard"
 import AddTaskDialog from "@/components/tasks/AddTaskDialog"
 import { useApi } from "@/hooks/useApi"
 import { toast } from "sonner"
+import { AlertCircle, RefreshCcw } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 // ─── Inline SVG clipboard icon ────────────────────────────────────────────────
 function ClipboardIcon() {
@@ -64,6 +66,32 @@ function AllDoneState({ count }: { count: number }) {
     )
 }
 
+// ─── Error State ──────────────────────────────────────────────────────────────
+function ErrorState({ scope, onRetry }: { scope: TaskScope; onRetry: () => void }) {
+    return (
+        <div className="flex flex-col items-center justify-center py-12 gap-4 text-center px-4 border-2 border-dashed border-red-100 rounded-2xl bg-red-50/30">
+            <div className="p-3 bg-red-100 rounded-full">
+                <AlertCircle className="w-6 h-6 text-red-600" />
+            </div>
+            <div className="space-y-1">
+                <h3 className="font-semibold text-gray-900">Could not load tasks</h3>
+                <p className="text-sm text-gray-500">
+                    There was a problem reaching the server for {scopeLabel[scope]}.
+                </p>
+            </div>
+            <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={onRetry}
+                className="gap-2 border-red-200 hover:bg-red-50 text-red-700"
+            >
+                <RefreshCcw className="w-4 h-4" />
+                Tap to retry
+            </Button>
+        </div>
+    )
+}
+
 // ─── Loading skeleton ──────────────────────────────────────────────────────────
 function LoadingSkeleton() {
     return (
@@ -90,10 +118,17 @@ export default function PlannerPage() {
         MONTHLY: true,
     })
 
+    const [errors, setErrors] = useState<Record<TaskScope, boolean>>({
+        DAILY: false,
+        WEEKLY: false,
+        MONTHLY: false,
+    })
+
     const [activeTab, setActiveTab] = useState<TaskScope>(TaskScope.DAILY)
 
     const fetchTasks = async (scope: TaskScope) => {
         setLoading((prev) => ({ ...prev, [scope]: true }))
+        setErrors((prev) => ({ ...prev, [scope]: false }))
         try {
             const authenticatedApi = await api()
             const res = await authenticatedApi.get<TaskOut[]>("/tasks", {
@@ -101,6 +136,7 @@ export default function PlannerPage() {
             })
             setTasks((prev) => ({ ...prev, [scope]: res.data }))
         } catch {
+            setErrors((prev) => ({ ...prev, [scope]: true }))
             toast.error("Failed to load tasks")
         } finally {
             setLoading((prev) => ({ ...prev, [scope]: false }))
@@ -143,6 +179,7 @@ export default function PlannerPage() {
 
     const renderTasks = (scope: TaskScope) => {
         if (loading[scope]) return <LoadingSkeleton />
+        if (errors[scope]) return <ErrorState scope={scope} onRetry={() => fetchTasks(scope)} />
 
         const allTasks = tasks[scope]
         const undone = allTasks.filter((t) => !t.is_done)

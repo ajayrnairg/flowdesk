@@ -66,15 +66,11 @@ async def test_login_wrong_password(async_client: AsyncClient):
 
 # 3. GET /auth/me
 @pytest.mark.asyncio
-async def test_read_users_me_valid_token(async_client: AsyncClient):
-    # Setup user & retrieve token
-    await async_client.post("/auth/register", json=REGISTER_PAYLOAD)
-    login_res = await async_client.post("/auth/login", json=LOGIN_PAYLOAD)
-    token = login_res.json()["access_token"]
+async def test_read_users_me_valid_token(authenticated_client, test_user: User):
+    # Use the authenticated_client fixture which handles the Clerk override
+    client = await authenticated_client(test_user)
     
-    # Use the token bearer header to access the protected route
-    headers = {"Authorization": f"Bearer {token}"}
-    me_response = await async_client.get("/auth/me", headers=headers)
+    me_response = await client.get("/auth/me")
     assert me_response.status_code == 200
     
     me_data = me_response.json()

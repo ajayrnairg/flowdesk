@@ -36,6 +36,7 @@ export default function SearchInput({ onSearch, loading }: Props) {
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSubmit()}
+                onFocus={() => window.scrollTo({top: 0, behavior: 'smooth'})}
                 placeholder="Ask anything about your saved content..."
                 className="pl-10 pr-10 h-12 text-base"
             />
