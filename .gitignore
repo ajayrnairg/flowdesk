@@ -1,0 +1,29 @@
+# Zip files
+*.zip
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+.venv
+env/
+venv/
+ENV/
+build/
+dist/
+
+# Next.js
+node_modules/
+.next/
+out/
+.next_prod/
+.next_prod.zip
+
+# IDEs
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
