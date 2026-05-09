@@ -4,7 +4,6 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from sqlalchemy import text
 
 # Setup logging
 logging.basicConfig(
@@ -21,21 +20,14 @@ from routers.collections import router as collections_router
 async def lifespan(app: FastAPI):
     """
     Lifespan events for startup and shutdown.
-    Handles DB connection checks safely for serverless environments.
+    Using NullPool — no persistent connections to warm up.
     """
-    try:
-        # Simple query to test the NeonDB connection pool on startup
-        async with engine.connect() as conn:
-            await conn.execute(text("SELECT 1"))
-        logger.info("Successfully connected to the database.")
-    except Exception as e:
-        logger.error(f"Database connection failed: {e}")
-        
-    yield # App runs and handles requests here
-    
-    # Shutdown gracefully
+    logger.info("FlowDesk API started (NullPool mode — connections opened per-request).")
+    yield  # App runs and handles requests here
+
+    # Dispose engine (no-op for NullPool, but good practice)
     await engine.dispose()
-    logger.info("Database connections closed.")
+    logger.info("Engine disposed on shutdown.")
 
 
 # Initialize FastAPI app

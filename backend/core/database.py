@@ -1,5 +1,6 @@
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.pool import NullPool
 from core.config import settings
 
 # Auto-fix DATABASE_URL for Render/Neon if it's missing the +asyncpg driver
@@ -9,15 +10,17 @@ if db_url.startswith("postgres://"):
 elif db_url.startswith("postgresql://"):
     db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
 
-# Initialize async engine with dialect-specific options
-engine_kwargs = {
+# Use NullPool for serverless/Neon:
+#   - No persistent connection pool = zero idle connections on Neon
+#   - Connections are opened per-request and closed immediately after
+#   - pool_pre_ping is irrelevant (and removed) since there's no pool to ping
+#   - This is the recommended approach for Neon + serverless runtimes
+engine_kwargs: dict = {
     "echo": False,
-    "pool_pre_ping": True,
-    "pool_recycle": 300,
+    "poolclass": NullPool,
 }
 
-# Only apply statement_cache_size if we're using PostgreSQL (asyncpg)
-# This is required for Neon/PgBouncer transaction pooling to avoid prepared statement errors
+# Disable prepared statement cache for Neon/PgBouncer transaction pooling
 if "postgresql" in db_url:
     engine_kwargs["connect_args"] = {"statement_cache_size": 0}
 
@@ -27,7 +30,7 @@ engine = create_async_engine(db_url, **engine_kwargs)
 AsyncSessionLocal = async_sessionmaker(
     bind=engine,
     class_=AsyncSession,
-    expire_on_commit=False, # Prevents attributes from expiring after commit, crucial for async
+    expire_on_commit=False,  # Prevents attributes from expiring after commit, crucial for async
 )
 
 # Base class for SQLAlchemy models (SQLAlchemy 2.0 style)
