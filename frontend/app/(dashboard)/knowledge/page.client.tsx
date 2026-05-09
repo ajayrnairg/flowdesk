@@ -177,56 +177,62 @@ export default function KnowledgePageClient() {
             )}
 
             {/* Header */}
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <h1 className="text-2xl font-semibold">Knowledge Base</h1>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2 w-full sm:w-auto">
                     <Button 
                         variant="outline" 
                         size="sm" 
                         onClick={handleSendDigest}
                         disabled={sendingDigest}
+                        className="flex-1 sm:flex-none"
                     >
                         <Mail className={`mr-2 h-4 w-4 ${sendingDigest ? "animate-bounce" : ""}`} />
-                        {sendingDigest ? "Sending..." : "Send Digest Now"}
+                        {sendingDigest ? "Sending..." : "Send Digest"}
                     </Button>
                     <Button 
                         variant="outline" 
                         size="sm" 
                         onClick={handleReprocess}
                         disabled={reprocessing}
+                        className="flex-1 sm:flex-none"
                     >
                         <RefreshCw className={`mr-2 h-4 w-4 ${reprocessing ? "animate-spin" : ""}`} />
-                        {reprocessing ? "Reprocessing..." : "Reprocess Failed"}
+                        {reprocessing ? "Reprocessing..." : "Reprocess"}
                     </Button>
-                    <AddUrlDialog onAdded={fetchData} />
+                    <div className="flex-1 sm:flex-none">
+                        <AddUrlDialog onAdded={fetchData} />
+                    </div>
                 </div>
             </div>
 
             {/* Filters */}
-            <div className="flex gap-4 items-center">
-                <Tabs
-                    value={active || "all"}
-                    onValueChange={(v) =>
-                        setActive(v === "all" ? undefined : v)
-                    }
-                >
-                    <TabsList>
-                        {filters.map((f) => (
-                            <TabsTrigger
-                                key={f.label}
-                                value={f.value || "all"}
-                            >
-                                {f.label}
-                            </TabsTrigger>
-                        ))}
-                    </TabsList>
-                </Tabs>
+            <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center w-full">
+                <div className="w-full overflow-x-auto pb-1 -mb-1 scrollbar-hide">
+                    <Tabs
+                        value={active || "all"}
+                        onValueChange={(v) =>
+                            setActive(v === "all" ? undefined : v)
+                        }
+                    >
+                        <TabsList className="w-max sm:w-fit">
+                            {filters.map((f) => (
+                                <TabsTrigger
+                                    key={f.label}
+                                    value={f.value || "all"}
+                                >
+                                    {f.label}
+                                </TabsTrigger>
+                            ))}
+                        </TabsList>
+                    </Tabs>
+                </div>
 
                 <Input
                     placeholder="Search..."
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    className="max-w-sm"
+                    className="w-full sm:max-w-sm shrink-0"
                 />
             </div>
 

@@ -47,35 +47,39 @@ export default function LibraryPage() {
         <div className="p-6 space-y-8 max-w-7xl mx-auto">
             {/* Header */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b pb-6">
-                <div className="flex items-center gap-3">
-                    <div className="p-2 bg-primary/10 rounded-lg">
+                <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 w-full sm:w-auto">
+                    <div className="p-2 bg-primary/10 rounded-lg shrink-0">
                         <BookOpen className="w-6 h-6 text-primary" />
                     </div>
-                    <div>
-                        <h1 className="text-3xl font-bold tracking-tight">Library</h1>
-                        <p className="text-muted-foreground text-sm">
+                    <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <h1 className="text-3xl font-bold tracking-tight">Library</h1>
+                            {unreadTotal > 0 && (
+                                <Badge variant="secondary" className="h-6 px-2 text-xs font-semibold shrink-0">
+                                    {unreadTotal} unread
+                                </Badge>
+                            )}
+                        </div>
+                        <p className="text-muted-foreground text-sm truncate">
                             Organize and track your reading progress
                         </p>
                     </div>
-                    {unreadTotal > 0 && (
-                        <Badge variant="secondary" className="h-6 px-2 text-xs font-semibold">
-                            {unreadTotal} unread
-                        </Badge>
-                    )}
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto mt-2 sm:mt-0">
                     <Button
                         variant={readingOnly ? "default" : "outline"}
                         size="sm"
                         onClick={() => setReadingOnly(!readingOnly)}
-                        className="gap-2"
+                        className="gap-2 flex-1 sm:flex-none"
                     >
                         <Filter className="w-4 h-4" />
                         {readingOnly ? "Reading Only" : "Show All"}
                     </Button>
 
-                    <CreateCollectionDialog onCreated={fetchLibrary} />
+                    <div className="flex-1 sm:flex-none">
+                        <CreateCollectionDialog onCreated={fetchLibrary} />
+                    </div>
                 </div>
             </div>
 

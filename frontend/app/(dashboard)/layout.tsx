@@ -22,7 +22,7 @@ function MobileBottomNav() {
     const pathname = usePathname()
     
     return (
-        <nav className="md:hidden fixed bottom-0 w-full bg-white border-t flex justify-around items-center h-16 z-50 px-2 pb-safe">
+        <nav className="md:hidden fixed bottom-0 w-full bg-background border-t border-border flex justify-around items-center h-16 z-50 px-2 pb-safe">
             {navItems.map((item) => {
                 const isActive = pathname.startsWith(item.href)
                 const Icon = item.icon
@@ -31,7 +31,7 @@ function MobileBottomNav() {
                         key={item.name}
                         href={item.href}
                         className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${
-                            isActive ? "text-primary" : "text-gray-400 hover:text-gray-600"
+                            isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
                         }`}
                     >
                         <Icon className="w-5 h-5" />

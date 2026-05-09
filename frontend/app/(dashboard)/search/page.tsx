@@ -88,10 +88,10 @@ export default function SearchPage() {
             {loading && (
                 <div className="space-y-4">
                     <Skeleton className="h-32 w-full rounded-xl" />
-                    <div className="flex gap-4">
-                        <Skeleton className="h-40 w-64" />
-                        <Skeleton className="h-40 w-64" />
-                        <Skeleton className="h-40 w-64" />
+                    <div className="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
+                        <Skeleton className="h-40 w-64 shrink-0" />
+                        <Skeleton className="h-40 w-64 shrink-0" />
+                        <Skeleton className="h-40 w-64 shrink-0" />
                     </div>
                 </div>
             )}

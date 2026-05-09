@@ -322,24 +322,26 @@ export default function PlannerPage() {
             >
                 {/* Header row — stacks vertically on mobile */}
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <TabsList className="w-full sm:w-auto">
-                        <TabsTrigger value={TaskScope.DAILY} className="flex-1 sm:flex-none">
-                            Today
-                        </TabsTrigger>
-                        <TabsTrigger value={TaskScope.WEEKLY} className="flex-1 sm:flex-none">
-                            Week
-                        </TabsTrigger>
-                        <TabsTrigger value={TaskScope.MONTHLY} className="flex-1 sm:flex-none">
-                            Month
-                        </TabsTrigger>
-                        <TabsTrigger value="HISTORY" className="flex-1 sm:flex-none">
-                            History
-                        </TabsTrigger>
-                    </TabsList>
+                    <div className="w-full overflow-x-auto pb-1 -mb-1 scrollbar-hide">
+                        <TabsList className="w-max sm:w-auto">
+                            <TabsTrigger value={TaskScope.DAILY} className="flex-none">
+                                Today
+                            </TabsTrigger>
+                            <TabsTrigger value={TaskScope.WEEKLY} className="flex-none">
+                                Week
+                            </TabsTrigger>
+                            <TabsTrigger value={TaskScope.MONTHLY} className="flex-none">
+                                Month
+                            </TabsTrigger>
+                            <TabsTrigger value="HISTORY" className="flex-none">
+                                History
+                            </TabsTrigger>
+                        </TabsList>
+                    </div>
 
                     {/* Add Task button scoped to the currently active tab */}
                     {activeTab !== "HISTORY" && (
-                        <div className="sm:ml-auto">
+                        <div className="sm:ml-auto w-full sm:w-auto mt-2 sm:mt-0">
                             <AddTaskDialog
                                 scope={activeTab as TaskScope}
                                 onCreated={() => fetchTasks(activeTab as TaskScope)}
